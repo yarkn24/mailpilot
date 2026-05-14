@@ -12,21 +12,22 @@ test.describe("landing page — public surface", () => {
     await page.goto("/");
     await expect(page).toHaveTitle(/Mailpilot/i);
 
-    // The product promise (three lines, one viewport).
-    await expect(
-      page.getByRole("heading", { name: /one inbox/i }),
-    ).toBeVisible();
-    await expect(page.getByText(/AI that never logs/i)).toBeVisible();
+    // The product promise lives in the H1 (lines split by <br/>).
+    const h1 = page.locator("h1").first();
+    await expect(h1).toBeVisible();
+    await expect(h1).toContainText(/one inbox/i);
+    await expect(h1).toContainText(/three providers/i);
+    await expect(h1).toContainText(/AI that never logs/i);
 
-    // Brand mark is present and recognizable.
-    await expect(page.getByText("Mailpilot")).toBeVisible();
+    // Brand mark.
+    await expect(page.getByText("Mailpilot").first()).toBeVisible();
   });
 
   test("renders all three feature panels", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByRole("heading", { name: "Unified inbox" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "AI that asks first" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "PWA, mobile-first" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "One inbox, three providers" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "AI asks first" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /100ms or it didn't happen/i })).toBeVisible();
   });
 
   test("PWA manifest is reachable and valid JSON", async ({ request }) => {
@@ -45,11 +46,11 @@ test.describe("landing page — public surface", () => {
   });
 
   test("mobile viewport: hero is readable and CTAs are tappable", async ({ page }) => {
-    // Pixel 7 profile already applied via projects.mobile-chrome; assertion is
-    // that the hero still fits and the CTA stack doesn't overflow.
+    // Pixel 7 profile applied via projects.mobile-chrome; assertion is that
+    // the hero still fits and CTAs meet WCAG tap-target minimum.
     await page.goto("/");
-    const heading = page.getByRole("heading", { name: /one inbox/i });
-    await expect(heading).toBeVisible();
+    const h1 = page.locator("h1").first();
+    await expect(h1).toBeVisible();
 
     const archButton = page.getByRole("link", { name: /architecture/i });
     await expect(archButton).toBeVisible();
