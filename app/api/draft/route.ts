@@ -69,8 +69,16 @@ export async function POST(req: Request) {
       output_tokens: res.outputTokens,
     });
   } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (/429|quota|rate.?limit|resource.?exhausted/i.test(msg)) {
+      return NextResponse.json({
+        model: "stub",
+        vendor: "none",
+        draft: `(AI quota reached) Draft would appear here. Configure a paid API key or wait for quota reset. Tone: ${tone}.`,
+      });
+    }
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "model call failed" },
+      { error: msg },
       { status: 502 },
     );
   }

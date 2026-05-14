@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
   const { verifier, challenge } = pkce();
   const state = issue(sid, "graph", verifier);
 
-  const res = NextResponse.redirect(authorizeUrl(cfg, state, challenge));
+  const res = NextResponse.redirect(authorizeUrl(cfg, state, challenge), { status: 302 });
   res.cookies.set("mailpilot_sid", sid, {
     httpOnly: true,
     sameSite: "lax",

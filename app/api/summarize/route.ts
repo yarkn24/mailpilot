@@ -78,8 +78,19 @@ export async function POST(req: Request) {
       truncated: body.thread.length > MAX_INPUT_CHARS,
     });
   } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    // Rate limit or quota exhausted — degrade gracefully to stub.
+    if (/429|quota|rate.?limit|resource.?exhausted/i.test(msg)) {
+      return NextResponse.json({
+        model: "stub",
+        vendor: "none",
+        summary: "AI quota reached. Summary unavailable — configure a paid API key or wait for quota reset.",
+        input_chars: truncated.length,
+        truncated: body.thread.length > MAX_INPUT_CHARS,
+      });
+    }
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "model call failed" },
+      { error: msg },
       { status: 502 },
     );
   }

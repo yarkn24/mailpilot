@@ -95,8 +95,16 @@ export async function POST(req: Request) {
       output_tokens: res.outputTokens,
     });
   } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (/429|quota|rate.?limit|resource.?exhausted/i.test(msg)) {
+      const stub = body.messages.map((m, i) => ({
+        id: m.id,
+        band: i % 3 === 0 ? "high" : i % 3 === 1 ? "normal" : "low",
+      }));
+      return NextResponse.json({ model: "stub", vendor: "none", priorities: stub });
+    }
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "model call failed" },
+      { error: msg },
       { status: 502 },
     );
   }
