@@ -34,7 +34,8 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    if (account.provider === "gmail" || account.provider === "graph") {
+    if (account.provider === "gmail" || account.provider === "graph" || account.provider === "demo") {
+      // Demo provider simulates send by persisting locally — no real SMTP call.
       const sent = await provider.sendMessage(account, {
         to: body.to,
         cc: body.cc,
@@ -43,7 +44,11 @@ export async function POST(req: NextRequest) {
         inReplyTo: body.inReplyTo,
         references: body.references,
       });
-      return NextResponse.json({ ok: true, messageId: sent.id || null });
+      return NextResponse.json({
+        ok: true,
+        messageId: sent.id || null,
+        simulated: account.provider === "demo",
+      });
     }
 
     if (!account.smtpHost || !account.smtpPort || !account.imapUser || !account.imapPassword) {

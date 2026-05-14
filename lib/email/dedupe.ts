@@ -7,7 +7,7 @@
  * than collapse two distinct messages.
  */
 
-export type Provider = "gmail" | "graph" | "imap";
+export type Provider = "gmail" | "graph" | "imap" | "demo";
 
 export interface RawMessage {
   providerId: string;

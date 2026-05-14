@@ -21,6 +21,8 @@ interface AccountStatus {
   error?: string;
 }
 
+type Priority = "high" | "normal" | "low";
+
 const ALL = "all";
 
 export function InboxList() {
@@ -28,6 +30,10 @@ export function InboxList() {
   const [accounts, setAccounts] = useState<AccountStatus[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [activeAccount, setActiveAccount] = useState<string>(ALL);
+  const [query, setQuery] = useState("");
+  const [priorities, setPriorities] = useState<Map<string, Priority>>(new Map());
+  const [prioritizing, setPrioritizing] = useState(false);
+  const [sortByPriority, setSortByPriority] = useState(false);
 
   useEffect(() => {
     fetch("/api/inbox")
@@ -39,11 +45,62 @@ export function InboxList() {
       .catch((e) => setError(e instanceof Error ? e.message : "fetch failed"));
   }, []);
 
-  const visible = useMemo(() => {
+  const filtered = useMemo(() => {
     if (!messages) return null;
-    if (activeAccount === ALL) return messages;
-    return messages.filter((m) => m.accountId === activeAccount);
-  }, [messages, activeAccount]);
+    let out = messages;
+    if (activeAccount !== ALL) out = out.filter((m) => m.accountId === activeAccount);
+    if (query.trim()) {
+      const q = query.toLowerCase();
+      out = out.filter(
+        (m) =>
+          m.subject.toLowerCase().includes(q) ||
+          (m.from.name || "").toLowerCase().includes(q) ||
+          m.from.address.toLowerCase().includes(q) ||
+          (m.snippet || "").toLowerCase().includes(q),
+      );
+    }
+    if (sortByPriority && priorities.size > 0) {
+      const rank: Record<string, number> = { high: 0, normal: 1, low: 2 };
+      out = [...out].sort((a, b) => {
+        const ra = rank[priorities.get(keyOf(a)) ?? "normal"] ?? 1;
+        const rb = rank[priorities.get(keyOf(b)) ?? "normal"] ?? 1;
+        if (ra !== rb) return ra - rb;
+        return a.date < b.date ? 1 : -1;
+      });
+    }
+    return out;
+  }, [messages, activeAccount, query, sortByPriority, priorities]);
+
+  async function prioritize() {
+    if (!messages || messages.length === 0) return;
+    setPrioritizing(true);
+    try {
+      const batch = messages.slice(0, 20).map((m) => ({
+        id: keyOf(m),
+        from: m.from.address,
+        subject: m.subject,
+        snippet: m.snippet || "",
+      }));
+      const res = await fetch("/api/prioritize", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ consent: true, messages: batch }),
+      });
+      const d = await res.json();
+      if (d.priorities && Array.isArray(d.priorities)) {
+        const map = new Map<string, Priority>();
+        for (const p of d.priorities) {
+          if (p.id && (p.band === "high" || p.band === "normal" || p.band === "low")) {
+            map.set(p.id, p.band);
+          }
+        }
+        setPriorities(map);
+        setSortByPriority(true);
+      }
+    } finally {
+      setPrioritizing(false);
+    }
+  }
 
   if (error) {
     return (
@@ -52,7 +109,7 @@ export function InboxList() {
       </div>
     );
   }
-  if (visible === null) {
+  if (filtered === null) {
     return (
       <ul className="mt-6 divide-y divide-black/5 overflow-hidden rounded-xl border border-black/8 bg-white">
         {[0, 1, 2, 3, 4].map((i) => (
@@ -72,8 +129,47 @@ export function InboxList() {
 
   return (
     <>
+      {/* Search + AI prioritize toolbar */}
+      {(messages ?? []).length > 0 && (
+        <div className="mt-5 flex flex-wrap items-center gap-2">
+          <div className="relative flex-1 min-w-[200px]">
+            <span aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-black/35">⌕</span>
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search subjects, senders, previews…"
+              className="w-full rounded-lg border border-black/10 bg-white py-2 pl-9 pr-3 text-sm placeholder:text-black/35 focus:border-[var(--color-ocean-deep)]/40 focus:outline-none focus:ring-2 focus:ring-[var(--color-ocean-deep)]/15"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={prioritize}
+            disabled={prioritizing}
+            className={
+              "inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors disabled:opacity-50 " +
+              (priorities.size > 0
+                ? "border-[var(--color-ocean-deep)]/30 bg-[var(--color-sky-dust)]/40 text-[var(--color-ocean-deep)]"
+                : "border-black/10 bg-white text-black/70 hover:border-black/25")
+            }
+          >
+            <span aria-hidden>✨</span>
+            {prioritizing ? "AI sorting…" : priorities.size > 0 ? "Re-sort" : "AI prioritize"}
+          </button>
+          {priorities.size > 0 && (
+            <button
+              type="button"
+              onClick={() => setSortByPriority((v) => !v)}
+              className="inline-flex items-center gap-1 rounded-lg border border-black/10 bg-white px-3 py-2 text-xs font-medium text-black/70 hover:border-black/25"
+            >
+              {sortByPriority ? "Sort by date" : "Sort by priority"}
+            </button>
+          )}
+        </div>
+      )}
+
       {accounts.length > 0 && (
-        <div className="mt-6 flex flex-wrap gap-2" role="tablist" aria-label="Account switcher">
+        <div className="mt-4 flex flex-wrap gap-2" role="tablist" aria-label="Account switcher">
           <SwitcherChip
             label={`All`}
             count={(messages ?? []).length}
@@ -118,19 +214,20 @@ export function InboxList() {
           </Link>
         </div>
       )}
-      {visible.length === 0 && accounts.length > 0 && (
+      {filtered.length === 0 && accounts.length > 0 && (
         <div className="mt-6 rounded-xl border border-dashed border-black/15 px-4 py-12 text-center text-sm text-black/60">
-          {activeAccount === ALL ? "Inbox is empty." : "No messages in this mailbox."}
+          {query ? `No messages match "${query}".` : activeAccount === ALL ? "Inbox is empty." : "No messages in this mailbox."}
         </div>
       )}
 
-      {visible.length > 0 && (
+      {filtered.length > 0 && (
         <ul className="mt-4 divide-y divide-black/5 overflow-hidden rounded-xl border border-black/8 bg-white">
-          {visible.map((m) => {
+          {filtered.map((m) => {
             const senderName = m.from.name || m.from.address.split("@")[0];
             const avatarSeed = m.from.address || senderName;
+            const priority = priorities.get(keyOf(m));
             return (
-              <li key={`${m.accountId}:${m.id}`}>
+              <li key={keyOf(m)}>
                 <Link
                   href={`/inbox/${m.accountId}/${m.id}?subject=${encodeURIComponent(m.subject)}&from=${encodeURIComponent(m.from.address)}${m.messageId ? `&mid=${encodeURIComponent(m.messageId)}` : ""}`}
                   className={
@@ -149,9 +246,8 @@ export function InboxList() {
                       >
                         {senderName}
                       </span>
-                      {m.flags.flagged && (
-                        <span aria-label="flagged" className="text-amber-500">★</span>
-                      )}
+                      {m.flags.flagged && <span aria-label="flagged" className="text-amber-500">★</span>}
+                      {priority && <PriorityChip band={priority} />}
                       <span className="ml-auto shrink-0 text-xs tabular-nums text-black/45">
                         {formatTime(m.date)}
                       </span>
@@ -181,6 +277,10 @@ export function InboxList() {
       )}
     </>
   );
+}
+
+function keyOf(m: MessageSummary): string {
+  return `${m.accountId}:${m.id}`;
 }
 
 function countUnread(messages: MessageSummary[]): Map<string, number> {
@@ -236,14 +336,28 @@ function Avatar({ seed, name }: { seed: string; name: string }) {
 }
 
 function LabelChip({ label }: { label: string }) {
-  // Skip Gmail's auto-system labels for cleaner UI
   if (label === "INBOX" || label === "UNREAD" || label === "IMPORTANT") return null;
   const pretty = label.replace(/^CATEGORY_/i, "").toLowerCase();
   return (
-    <span
-      className="inline-flex items-center rounded-full bg-[var(--color-sky-dust)] px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-[var(--color-ocean-deep)]"
-    >
+    <span className="inline-flex items-center rounded-full bg-[var(--color-sky-dust)] px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-[var(--color-ocean-deep)]">
       {pretty}
+    </span>
+  );
+}
+
+function PriorityChip({ band }: { band: Priority }) {
+  const map = {
+    high: { label: "High", bg: "#fee2e2", fg: "#991b1b" },
+    normal: { label: "Normal", bg: "#e0e7ff", fg: "#3730a3" },
+    low: { label: "Low", bg: "#f3f4f6", fg: "#6b7280" },
+  };
+  const s = map[band];
+  return (
+    <span
+      className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider"
+      style={{ background: s.bg, color: s.fg }}
+    >
+      {s.label}
     </span>
   );
 }

@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
   );
 
   const messages: Awaited<ReturnType<typeof provider.listInbox>> = [];
-  const messageProvider = new Map<string, "gmail" | "graph" | "imap">();
+  const messageProvider = new Map<string, "gmail" | "graph" | "imap" | "demo">();
   const accountStatus = [];
   for (let i = 0; i < settled.length; i++) {
     const a = accounts[i];

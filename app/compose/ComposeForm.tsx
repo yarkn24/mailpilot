@@ -6,6 +6,7 @@ interface Account {
   id: string;
   email: string;
   provider: string;
+  displayName?: string;
 }
 
 interface Prefill {
@@ -127,6 +128,11 @@ export function ComposeForm() {
             <option key={a.id} value={a.id}>{a.email} · {a.provider}</option>
           ))}
         </select>
+        {accounts.find((a) => a.id === from)?.provider === "demo" && (
+          <span className="mt-1 inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-amber-700">
+            ⚠ Demo mailbox — Send is simulated, nothing leaves your machine
+          </span>
+        )}
       </Field>
       <Field label="To">
         <input type="email" required value={to} onChange={(e) => setTo(e.target.value)} className={inputCls} />
@@ -153,7 +159,9 @@ export function ComposeForm() {
       )}
       {sent && (
         <div className="rounded border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-900 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-200">
-          Sent. Redirecting…
+          {accounts.find((a) => a.id === from)?.provider === "demo"
+            ? "✓ Simulated send — demo account, nothing left your machine. Redirecting…"
+            : "Sent. Redirecting…"}
         </div>
       )}
       <button

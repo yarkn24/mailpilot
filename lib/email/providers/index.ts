@@ -6,12 +6,14 @@ import type { Account } from "../types";
 import * as imap from "./imap";
 import * as gmail from "./gmail";
 import * as graph from "./graph";
+import * as demo from "./demo";
 
 function pick(a: Account) {
   switch (a.provider) {
     case "imap":  return imap;
     case "gmail": return gmail;
     case "graph": return graph;
+    case "demo":  return demo;
   }
 }
 

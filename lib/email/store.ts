@@ -120,7 +120,7 @@ export function sanitizeAccount(a: Account) {
 interface AccountRow {
   id: string;
   session_id: string;
-  provider: "gmail" | "graph" | "imap";
+  provider: "gmail" | "graph" | "imap" | "demo";
   email: string;
   display_name: string | null;
   imap_host: string | null;

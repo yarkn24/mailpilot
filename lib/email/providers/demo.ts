@@ -1,0 +1,487 @@
+/**
+ * Demo provider — seeded mock mailboxes.
+ *
+ * Lets a reviewer click "Try with demo accounts" on the settings page and
+ * immediately see a populated unified inbox that exercises every brief
+ * feature (read, archive, trash, search, labels, reply, forward, AI
+ * summarize/draft/prioritize) WITHOUT requiring real provider credentials.
+ *
+ * The demo data is held in-memory keyed by accountId; it survives within a
+ * single Vercel function instance but resets on cold start — that's fine for
+ * a demo.
+ */
+import type {
+  Account,
+  ConnectionStatus,
+  ListInboxOptions,
+  MessageBody,
+  MessageSummary,
+} from "../types";
+
+interface DemoMail {
+  id: string;
+  threadId: string;
+  messageId: string;
+  fromName: string;
+  fromAddress: string;
+  subject: string;
+  snippet: string;
+  html: string | null;
+  text: string;
+  date: string;
+  flags: { unread: boolean; flagged: boolean };
+  labels: string[];
+  state: "inbox" | "archived" | "trash";
+}
+
+interface Inbox {
+  // accountId → mail[]
+  byId: Map<string, DemoMail>;
+}
+
+const STORE = new Map<string, Inbox>();
+
+/** The four demo personas. Match the brief's Yahoo / AOL / Office 365 / Gmail. */
+export const DEMO_PERSONAS = [
+  {
+    persona: "yahoo",
+    email: "demo.yahoo@yahoo.com",
+    displayName: "Demo Yahoo Mailbox",
+    label: "Yahoo Mail",
+  },
+  {
+    persona: "aol",
+    email: "demo.aol@aol.com",
+    displayName: "Demo AOL Mailbox",
+    label: "AOL Mail",
+  },
+  {
+    persona: "office365",
+    email: "demo.work@contoso.onmicrosoft.com",
+    displayName: "Demo Office 365",
+    label: "Microsoft 365",
+  },
+  {
+    persona: "gmail",
+    email: "demo.personal@gmail.com",
+    displayName: "Demo Gmail",
+    label: "Gmail",
+  },
+] as const;
+
+export type DemoPersona = typeof DEMO_PERSONAS[number]["persona"];
+
+function makeId(): string {
+  return Math.random().toString(36).slice(2, 12);
+}
+
+function isoDaysAgo(days: number, hours = 0): string {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  d.setHours(d.getHours() - hours);
+  return d.toISOString();
+}
+
+/** Seed a freshly-created demo account with realistic mail for the given persona. */
+export function seedDemoMail(accountId: string, persona: DemoPersona): void {
+  const inbox: Inbox = { byId: new Map() };
+  for (const m of FIXTURES[persona]) {
+    const id = makeId();
+    inbox.byId.set(id, { ...m, id, threadId: id });
+  }
+  STORE.set(accountId, inbox);
+}
+
+function ensureInbox(accountId: string): Inbox {
+  let inbox = STORE.get(accountId);
+  if (!inbox) {
+    inbox = { byId: new Map() };
+    STORE.set(accountId, inbox);
+  }
+  return inbox;
+}
+
+// ---------- provider interface ----------
+
+export async function testConnection(_a: Account): Promise<ConnectionStatus> {
+  return {
+    ok: true,
+    capabilities: {
+      serverSideThreading: true,
+      serverSideSearch: true,
+      labels: "gmail",
+      push: false,
+    },
+  };
+}
+
+export async function listInbox(a: Account, opts: ListInboxOptions = {}): Promise<MessageSummary[]> {
+  const inbox = ensureInbox(a.id);
+  const limit = Math.min(opts.limit ?? 25, 50);
+  const visible = Array.from(inbox.byId.values()).filter((m) => m.state === "inbox");
+  visible.sort((x, y) => (x.date < y.date ? 1 : -1));
+  return visible.slice(0, limit).map((m) => ({
+    id: m.id,
+    accountId: a.id,
+    threadId: m.threadId,
+    messageId: m.messageId,
+    from: { name: m.fromName, address: m.fromAddress },
+    to: [{ address: a.email }],
+    subject: m.subject,
+    snippet: m.snippet,
+    date: m.date,
+    flags: m.flags,
+    labels: m.labels,
+  }));
+}
+
+export async function getMessageBody(a: Account, id: string): Promise<MessageBody> {
+  const inbox = ensureInbox(a.id);
+  const m = inbox.byId.get(id);
+  if (!m) throw new Error("message not found");
+  // Side-effect: mark read on read, like the real providers do.
+  m.flags = { ...m.flags, unread: false };
+  return {
+    id,
+    accountId: a.id,
+    html: m.html,
+    text: m.text,
+    attachments: [],
+  };
+}
+
+export async function markRead(a: Account, id: string): Promise<void> {
+  const m = ensureInbox(a.id).byId.get(id);
+  if (m) m.flags = { ...m.flags, unread: false };
+}
+
+export async function archive(a: Account, id: string): Promise<void> {
+  const m = ensureInbox(a.id).byId.get(id);
+  if (m) m.state = "archived";
+}
+
+export async function trash(a: Account, id: string): Promise<void> {
+  const m = ensureInbox(a.id).byId.get(id);
+  if (m) m.state = "trash";
+}
+
+export async function searchInbox(a: Account, query: string): Promise<string[]> {
+  const q = query.toLowerCase();
+  const inbox = ensureInbox(a.id);
+  return Array.from(inbox.byId.values())
+    .filter((m) => m.state === "inbox")
+    .filter((m) =>
+      m.subject.toLowerCase().includes(q) ||
+      m.snippet.toLowerCase().includes(q) ||
+      m.fromName.toLowerCase().includes(q) ||
+      m.fromAddress.toLowerCase().includes(q) ||
+      m.text.toLowerCase().includes(q),
+    )
+    .map((m) => m.id);
+}
+
+export async function sendMessage(
+  a: Account,
+  opts: { to: string; cc?: string; subject: string; body: string; inReplyTo?: string },
+): Promise<{ id: string }> {
+  // Demo: persist the sent message into the same account as a "sent" record
+  // by adding it to the inbox flagged read + archived. Good enough to show
+  // the send path works without actually hitting SMTP.
+  const inbox = ensureInbox(a.id);
+  const id = makeId();
+  inbox.byId.set(id, {
+    id,
+    threadId: id,
+    messageId: `<${id}@mailpilot.demo>`,
+    fromName: a.displayName ?? a.email,
+    fromAddress: a.email,
+    subject: opts.subject,
+    snippet: opts.body.slice(0, 140),
+    html: null,
+    text: opts.body,
+    date: new Date().toISOString(),
+    flags: { unread: false, flagged: false },
+    labels: ["SENT"],
+    state: "archived",
+  });
+  return { id };
+}
+
+// ---------- fixtures ----------
+
+type Fixture = Omit<DemoMail, "id" | "threadId">;
+
+const FIXTURES: Record<DemoPersona, Fixture[]> = {
+  yahoo: [
+    {
+      messageId: "<recruiter1@northwind.co>",
+      fromName: "Alex Rivera",
+      fromAddress: "alex.rivera@northwind.co",
+      subject: "Quick intro — staff engineer role (SF, hybrid)",
+      snippet: "Saw your background and would love 25 minutes next week to walk through the role. SF HQ, hybrid 2 days/week.",
+      html: null,
+      text: "Hi —\n\nMy name is Alex, I lead talent at Northwind (SoMa, SF). We're hiring a Staff Engineer to lead our platform team and your background is a strong match.\n\nQuick details: SF HQ at 4th & Brannan, hybrid 2 days/week, comp band $310–360k base + equity.\n\nWould you have 25 minutes next week for an intro call? Happy to work around your schedule.\n\nBest,\nAlex Rivera\nHead of Talent · Northwind",
+      date: isoDaysAgo(0, 2),
+      flags: { unread: true, flagged: false },
+      labels: ["recruiting"],
+      state: "inbox",
+    },
+    {
+      messageId: "<finance1@portfolio-tracker.app>",
+      fromName: "Portfolio Tracker",
+      fromAddress: "no-reply@portfolio-tracker.app",
+      subject: "Daily summary — your watchlist is up 1.8%",
+      snippet: "NVDA led with a 3.4% gain. AAPL flat. Two of your alerts triggered today.",
+      html: null,
+      text: "Daily portfolio summary\n\nYour watchlist gained today.\n- NVDA +3.4%\n- AAPL  0.0%\n- MSFT +1.1%\n- META  −0.6%\n\nTotal: +1.8%\n\nAlerts triggered:\n- NVDA crossed its 50-day moving average\n- Earnings call reminder: GOOG in 2 days",
+      date: isoDaysAgo(0, 5),
+      flags: { unread: true, flagged: false },
+      labels: ["finance"],
+      state: "inbox",
+    },
+    {
+      messageId: "<airbnb1@airbnb.com>",
+      fromName: "Airbnb",
+      fromAddress: "automated@airbnb.com",
+      subject: "Your Lake Tahoe cabin is confirmed",
+      snippet: "Check-in Fri 13 June 4pm, check-out Sun 15 June 11am. South Lake Tahoe, CA.",
+      html: null,
+      text: "Reservation confirmed.\n\nLocation: South Lake Tahoe, CA\nCheck-in: Fri 13 June, 4pm\nCheck-out: Sun 15 June, 11am\nGuests: 4\n\nDirections: ~3.5 hr drive from SF, take I-80 E then US-50 E. Self check-in via lockbox; code in the app on arrival day.",
+      date: isoDaysAgo(1),
+      flags: { unread: false, flagged: true },
+      labels: ["travel"],
+      state: "inbox",
+    },
+    {
+      messageId: "<vendor1@stripe.com>",
+      fromName: "Stripe",
+      fromAddress: "receipt@stripe.com",
+      subject: "Receipt — Domain renewal $39.00",
+      snippet: "Annual renewal of yourdomain.com processed successfully. Card on file ending 0421.",
+      html: null,
+      text: "Receipt\n\nDomain: yourdomain.com\nProvider: Namecheap\nAmount: $39.00\nMethod: Card ending 0421\nNext renewal: May 14, 2027",
+      date: isoDaysAgo(2),
+      flags: { unread: false, flagged: false },
+      labels: ["receipts"],
+      state: "inbox",
+    },
+    // Cross-account thread: this Yahoo demo has a forwarded note from the
+    // Gmail demo persona (the user forwarding themselves a receipt for taxes).
+    {
+      messageId: "<self-fwd-1@gmail.com>",
+      fromName: "demo.personal (you)",
+      fromAddress: "demo.personal@gmail.com",
+      subject: "Fwd: Vercel receipt — saving for taxes",
+      snippet: "Forwarded the Stripe receipt for $20 to my personal folder. Need to keep this for next year's taxes.",
+      html: null,
+      text: "Forwarded the Stripe receipt for $20 to my personal folder. Need to keep this for next year's taxes.\n\n---------- Forwarded message ----------\nFrom: Stripe <receipt@stripe.com>\nSubject: Your receipt from Vercel Inc. #2841\n\nReceipt for $20.00\nVercel Pro — monthly subscription",
+      date: isoDaysAgo(0, 9),
+      flags: { unread: false, flagged: false },
+      labels: ["forwarded"],
+      state: "inbox",
+    },
+  ],
+  aol: [
+    {
+      messageId: "<bank-alert@firstline-bank.com>",
+      fromName: "First Line Bank",
+      fromAddress: "alerts@firstline-bank.com",
+      subject: "Large purchase alert — $1,847.00",
+      snippet: "We noticed a $1,847.00 charge at BEST BUY. Confirm if this was you.",
+      html: null,
+      text: "Card ending 4429 — $1,847.00 at BEST BUY on May 13.\n\nIf this was you, no action needed. If not, freeze the card immediately from the app.",
+      date: isoDaysAgo(0, 1),
+      flags: { unread: true, flagged: true },
+      labels: ["finance"],
+      state: "inbox",
+    },
+    {
+      messageId: "<news1@morningbrief.media>",
+      fromName: "Morning Brief",
+      fromAddress: "newsletter@morningbrief.media",
+      subject: "Top 5 stories you missed today",
+      snippet: "Markets, tech, geopolitics — the daily roundup.",
+      html: null,
+      text: "Top stories this morning\n\n1. Markets close higher on rate-cut hopes\n2. NASA Artemis II crew completes final integration tests\n3. New AI inference chip announced at Computex\n4. EU finalises landmark AI Act amendments\n5. Mortgage rates dip to 12-week low",
+      date: isoDaysAgo(0, 8),
+      flags: { unread: true, flagged: false },
+      labels: ["news"],
+      state: "inbox",
+    },
+    {
+      messageId: "<jobs1@hired.com>",
+      fromName: "Hired",
+      fromAddress: "jobs@hired.com",
+      subject: "12 new roles match your profile",
+      snippet: "Senior Frontend at Linear, Eng Manager at Notion, Staff Engineer at Vercel.",
+      html: null,
+      text: "Top matches this week:\n- Senior Frontend Engineer at Linear (Remote, $200–260k)\n- Engineering Manager at Notion (NYC, $250–310k)\n- Staff Engineer at Vercel (Remote)\n\nReply 'yes' on a role to start an intro.",
+      date: isoDaysAgo(1, 3),
+      flags: { unread: false, flagged: false },
+      labels: ["jobs"],
+      state: "inbox",
+    },
+    {
+      messageId: "<freelance1@upwork.com>",
+      fromName: "Jordan Brooks",
+      fromAddress: "jordan.brooks@projectsolo.com",
+      subject: "Contract proposal — 6-week React engagement",
+      snippet: "Hi! Following up on the call. Attached the scope of work + rate sheet for the engagement.",
+      html: null,
+      text: "Hi —\n\nFollowing up on our call yesterday. I've attached the scope of work and rate sheet for the engagement. Quick summary:\n\n- 6 weeks, ~30 hrs/week\n- React 19 + Next.js 16 migration\n- Rate: $145/hr, NET-15\n- Start date: June 2\n\nLet me know if anything needs adjusting and I'll send a final SOW to sign.\n\nBest,\nJordan",
+      date: isoDaysAgo(2, 1),
+      flags: { unread: false, flagged: false },
+      labels: ["contracts"],
+      state: "inbox",
+    },
+  ],
+  office365: [
+    {
+      messageId: "<incident1@contoso.com>",
+      fromName: "Daniel Park (VP Eng)",
+      fromAddress: "daniel.park@contoso.com",
+      subject: "URGENT: prod is down — need eyes now",
+      snippet: "Pager went off at 09:47 PT. /api/checkout returning 500. Can you jump on the war-room call?",
+      html: null,
+      text: "Pager went off at 09:47 PT. /api/checkout returning 500.\n\nFirst hypothesis: deploy 4f12e from this morning (us-west-2 only). Already paged Maya from infra.\n\nCan you jump on the war room? Zoom: https://contoso.zoom.us/j/incident-2841\n\nThis is the third incident this month — we'll need a post-mortem.",
+      date: isoDaysAgo(0, 0),
+      flags: { unread: true, flagged: true },
+      labels: ["IMPORTANT", "incidents"],
+      state: "inbox",
+    },
+    {
+      messageId: "<billing1@onepass.com>",
+      fromName: "1Password Business",
+      fromAddress: "billing@1password.com",
+      subject: "Invoice #INV-22841 — May 2026 ($84.00)",
+      snippet: "Your monthly subscription invoice is ready. 12 seats × $7.00.",
+      html: null,
+      text: "Invoice INV-22841\nPeriod: May 2026\nSeats: 12 × $7.00 = $84.00\nAuto-charged to card on file.",
+      date: isoDaysAgo(0, 4),
+      flags: { unread: true, flagged: false },
+      labels: ["receipts"],
+      state: "inbox",
+    },
+    {
+      messageId: "<planning1@contoso.com>",
+      fromName: "Aisha Patel (PM)",
+      fromAddress: "aisha.patel@contoso.com",
+      subject: "Q3 planning — your section is the last open item",
+      snippet: "Section 2 (engineering capacity) needs your numbers by Friday so we can present Monday in the Mission HQ all-hands.",
+      html: null,
+      text: "Hi —\n\nI dropped my Q3 planning draft in the shared doc.\n\nSection 2 needs your input on engineering capacity — how many eng-weeks we can commit to the new onboarding flow vs. paying down auth debt.\n\nWould love to lock this by Friday EOD so we can present at the Monday all-hands in the Mission HQ.\n\nThanks!\nAisha",
+      date: isoDaysAgo(1),
+      flags: { unread: false, flagged: false },
+      labels: ["planning"],
+      state: "inbox",
+    },
+    {
+      messageId: "<teams1@microsoft.com>",
+      fromName: "Microsoft Teams",
+      fromAddress: "noreply@teams.microsoft.com",
+      subject: "Meeting recap — Weekly engineering sync",
+      snippet: "Action items: incident-response RFC, Q3 offsite booking, security triage.",
+      html: null,
+      text: "Meeting: Weekly engineering sync\nDuration: 47 min\nParticipants: 9\n\nKey action items:\n- Daniel: draft incident-response RFC by next Mon\n- Aisha: book Q3 planning offsite\n- You: triage open security findings\n\nRecording: https://teams.microsoft.com/recording/xxx",
+      date: isoDaysAgo(2),
+      flags: { unread: false, flagged: false },
+      labels: ["meetings"],
+      state: "inbox",
+    },
+    {
+      messageId: "<security1@contoso.com>",
+      fromName: "Casey Morgan (Security)",
+      fromAddress: "casey.morgan@contoso.com",
+      subject: "Dependabot — 3 high-severity advisories",
+      snippet: "Three transitive deps have CVEs landed since yesterday. Patches available, no breaking changes.",
+      html: null,
+      text: "Three high-severity advisories landed since yesterday on transitive deps:\n\n1. CVE-2026-xxxx — patched in 5.2.1 (no API change)\n2. CVE-2026-yyyy — patched in 3.0.4 (no API change)\n3. CVE-2026-zzzz — patched in 2.1.7 (no API change)\n\nI've opened PR #482 with the bumps + lockfile diff. Could you review when you have 10 minutes?\n\nCasey",
+      date: isoDaysAgo(0, 11),
+      flags: { unread: true, flagged: false },
+      labels: ["security"],
+      state: "inbox",
+    },
+  ],
+  gmail: [
+    {
+      messageId: "<gh1@github.com>",
+      fromName: "GitHub",
+      fromAddress: "noreply@github.com",
+      subject: "[mailpilot] PR #42 ready for review",
+      snippet: "yarkn24 opened PR #42: 'AI prioritization with Gemini'. 3 files changed.",
+      html: null,
+      text: "Repository: yarkn24/mailpilot\nPR: #42 — AI prioritization with Gemini\nAuthor: yarkn24\nFiles changed: 3 (+187, −12)\n\nReview: https://github.com/yarkn24/mailpilot/pull/42",
+      date: isoDaysAgo(0, 1),
+      flags: { unread: true, flagged: false },
+      labels: ["dev"],
+      state: "inbox",
+    },
+    {
+      messageId: "<stripe1@stripe.com>",
+      fromName: "Stripe",
+      fromAddress: "receipt@stripe.com",
+      subject: "Your receipt from Vercel Inc. #2841",
+      snippet: "Receipt for $20.00 — Vercel Pro subscription.",
+      html: null,
+      text: "Receipt for $20.00\nVercel Pro — monthly subscription\nMay 14, 2026",
+      date: isoDaysAgo(0, 6),
+      flags: { unread: true, flagged: false },
+      labels: ["receipts"],
+      state: "inbox",
+    },
+    {
+      messageId: "<medium1@medium.com>",
+      fromName: "Medium Daily Digest",
+      fromAddress: "noreply@medium.com",
+      subject: "5 stories trending in Programming",
+      snippet: "What we learned from a year of Claude Code; building a distributed system in Rust; …",
+      html: null,
+      text: "Medium daily digest\n\n1. What we learned from a year of Claude Code\n2. Building a distributed system in Rust\n3. Why React Server Components changed everything\n4. The case against microservices in 2026\n5. Why I stopped using TypeScript (and came back)",
+      date: isoDaysAgo(1, 2),
+      flags: { unread: false, flagged: false },
+      labels: ["newsletters"],
+      state: "inbox",
+    },
+    {
+      messageId: "<friend1@gmail.com>",
+      fromName: "Taylor Hayes",
+      fromAddress: "taylor.hayes@gmail.com",
+      subject: "Re: coffee Saturday?",
+      snippet: "Yeah, 11 works. Sightglass on 7th? Bringing my laptop, want to pair on a side-project bug after.",
+      html: null,
+      text: "Yeah, 11 works. Sightglass on 7th sound good? Or Ritual on Valencia if you want to skip the SoMa crowd.\n\nAlso bringing my laptop — want to pair on the side project for an hour after. The new auth flow has a weird bug I can't repro alone.\n\nSee you then.\nTaylor",
+      date: isoDaysAgo(2, 4),
+      flags: { unread: false, flagged: false },
+      labels: ["friends"],
+      state: "inbox",
+    },
+    {
+      messageId: "<shipping1@parcelco.com>",
+      fromName: "ParcelCo Shipping",
+      fromAddress: "transaction@parcelco.com",
+      subject: "Your order has shipped",
+      snippet: "Order #50208714 is on its way. Tracking: PC1029384756.",
+      html: null,
+      text: "Your order #50208714 has shipped.\nCarrier: ParcelCo Express\nTracking: PC1029384756\nETA: 5–8 business days",
+      date: isoDaysAgo(3),
+      flags: { unread: false, flagged: false },
+      labels: ["shopping"],
+      state: "inbox",
+    },
+    // Cross-account: this Gmail demo has a reply thread with the Office 365 demo
+    // — Aisha replied to a Q3 planning question.
+    {
+      messageId: "<crossthread1@contoso.com>",
+      fromName: "Aisha Patel (work)",
+      fromAddress: "aisha.patel@contoso.com",
+      subject: "Re: Q3 planning — pinging your personal in case work is offline",
+      snippet: "Pinging your personal in case work email is being slow today. Did you see my doc? Need to lock by Friday.",
+      html: null,
+      text: "Hey —\n\nPinging your personal Gmail in case the work mail server is being slow today (some folks reported delays this morning).\n\nDid you see my Q3 planning doc? Need to lock by Friday EOD so we can present Monday. The capacity numbers in Section 2 are the only thing left.\n\nNo pressure if you're heads-down — I can fill in placeholders and you adjust before the meeting.\n\nA.",
+      date: isoDaysAgo(0, 3),
+      flags: { unread: true, flagged: false },
+      labels: ["work"],
+      state: "inbox",
+    },
+  ],
+};

@@ -3,7 +3,7 @@
  * The unified-inbox shape — every provider adapter returns these.
  */
 
-export type Provider = "gmail" | "graph" | "imap";
+export type Provider = "gmail" | "graph" | "imap" | "demo";
 
 export interface Account {
   id: string;             // internal stable id
