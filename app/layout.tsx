@@ -2,9 +2,9 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Mailpilot — AI-first email",
+  title: "mailpilot — three providers, one inbox",
   description:
-    "Universal email client for Gmail, Office 365, and IMAP. Unified inbox, AI summaries, AI reply drafts, AI prioritization.",
+    "Universal email client. Gmail, Microsoft 365, IMAP. AI summaries, reply drafts, prioritization — opt-in per mailbox. Bodies are not stored.",
   applicationName: "Mailpilot",
   manifest: "/manifest.webmanifest",
   appleWebApp: {

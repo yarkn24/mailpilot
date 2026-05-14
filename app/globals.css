@@ -1,11 +1,16 @@
 @import "tailwindcss";
 
 @theme {
-  --color-ink: #0a0a0a;
-  --color-paper: #fafaf7;
-  --color-accent: #2563eb;
-  --color-muted: #6b6b6b;
-  --font-display: "Inter", system-ui, -apple-system, sans-serif;
+  --color-ink:    #0e0e0e;
+  --color-paper:  #f5f3ef;
+  --color-rule:   #d6d2c9;
+  --color-muted:  #6b675f;
+  --color-accent: #1b6b3a;   /* terminal-green for OK / accent */
+  --color-warn:   #b07d09;   /* amber for MED */
+  --color-stop:   #a02828;   /* red for HIGH */
+
+  --font-mono: ui-monospace, "SF Mono", Menlo, Monaco, "Cascadia Mono", "Roboto Mono", monospace;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Inter", sans-serif;
 }
 
 :root {
@@ -15,17 +20,33 @@
 html {
   background: var(--color-paper);
   color: var(--color-ink);
-  font-family: var(--font-display);
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
 }
 
 @media (prefers-color-scheme: dark) {
   html {
-    background: #0a0a0a;
-    color: #fafaf7;
+    --color-ink:    #f2efe8;
+    --color-paper:  #0d0d0d;
+    --color-rule:   #2a2a2a;
+    --color-muted:  #8a857d;
+    --color-accent: #4dd58f;
+    --color-warn:   #e2b550;
+    --color-stop:   #ff6b6b;
   }
 }
 
 body {
   min-height: 100dvh;
+  background-image:
+    linear-gradient(to right, color-mix(in srgb, var(--color-rule) 40%, transparent) 1px, transparent 1px);
+  background-size: 100% 100%;
 }
+
+.font-mono { font-family: var(--font-mono); }
+
+/* Severity chips used in status grid */
+.chip { font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.04em; padding: 1px 6px; border: 1px solid; }
+.chip-ok   { color: var(--color-accent); border-color: var(--color-accent); }
+.chip-warn { color: var(--color-warn);   border-color: var(--color-warn); }
+.chip-stop { color: var(--color-stop);   border-color: var(--color-stop); }

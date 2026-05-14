@@ -19,14 +19,14 @@ test.describe("landing page — public surface", () => {
     await expect(h1).toContainText(/three providers/i);
     await expect(h1).toContainText(/AI that never logs/i);
 
-    // Brand mark.
-    await expect(page.getByText("Mailpilot").first()).toBeVisible();
+    // Brand mark — case-insensitive (landing uses lowercase "mailpilot").
+    await expect(page.getByText(/mailpilot/i).first()).toBeVisible();
   });
 
   test("renders all three feature panels", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByRole("heading", { name: "One inbox, three providers" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "AI asks first" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /one inbox, three providers/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /ai asks first/i })).toBeVisible();
     await expect(page.getByRole("heading", { name: /100ms or it didn't happen/i })).toBeVisible();
   });
 
