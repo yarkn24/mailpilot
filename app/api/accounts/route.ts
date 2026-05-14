@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { addAccount, ensureSessionId, listAccounts, sanitizeAccount } from "@/lib/email/store";
+import {
+  addAccount,
+  ensureSessionId,
+  hydrateDemoAccounts,
+  listAccounts,
+  sanitizeAccount,
+} from "@/lib/email/store";
 import { provider, presetForDomain } from "@/lib/email/providers";
 import type { Account } from "@/lib/email/types";
 
@@ -17,13 +23,17 @@ function withSession(res: NextResponse, sid: string) {
 }
 
 export async function GET(req: NextRequest) {
-  const sid = ensureSessionId(req.headers.get("cookie"));
+  const cookieHeader = req.headers.get("cookie");
+  const sid = ensureSessionId(cookieHeader);
+  hydrateDemoAccounts(sid, cookieHeader);
   const accounts = (await listAccounts(sid)).map(sanitizeAccount);
   return withSession(NextResponse.json({ accounts }), sid);
 }
 
 export async function POST(req: NextRequest) {
-  const sid = ensureSessionId(req.headers.get("cookie"));
+  const cookieHeader = req.headers.get("cookie");
+  const sid = ensureSessionId(cookieHeader);
+  hydrateDemoAccounts(sid, cookieHeader);
   const body = await req.json().catch(() => null) as
     | { provider: "imap"; email: string; password: string; imapHost?: string; imapPort?: number; smtpHost?: string; smtpPort?: number; displayName?: string }
     | null;

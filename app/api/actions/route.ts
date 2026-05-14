@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ensureSessionId, getAccount } from "@/lib/email/store";
+import { ensureSessionId, getAccount, hydrateDemoAccounts } from "@/lib/email/store";
 import { provider } from "@/lib/email/providers";
 
 export const runtime = "nodejs";
@@ -7,7 +7,9 @@ export const runtime = "nodejs";
 type Action = "archive" | "trash" | "markRead";
 
 export async function POST(req: NextRequest) {
-  const sid = ensureSessionId(req.headers.get("cookie"));
+  const cookieHeader = req.headers.get("cookie");
+  const sid = ensureSessionId(cookieHeader);
+  hydrateDemoAccounts(sid, cookieHeader);
   const body = await req.json().catch(() => null) as
     | { accountId: string; messageId: string; action: Action }
     | null;

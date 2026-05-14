@@ -5,7 +5,8 @@
  *   In that case `MAILPILOT_ENCRYPTION_KEY` MUST also be set. Plaintext
  *   passwords/refresh tokens never hit the database.
  * - Else → in-memory `Map` keyed by session cookie. Volatile across cold
- *   starts on Vercel serverless. Fine for demo, not for prod.
+ *   starts on Vercel serverless. Demo accounts are recovered via the
+ *   `mailpilot_demo` cookie so a cold-started lambda can self-rehydrate.
  *
  * Interface is stable so swapping backends is transparent to callers.
  */
@@ -13,12 +14,81 @@ import type { Account } from "./types";
 import crypto from "node:crypto";
 import { getSupabase } from "@/lib/db/supabase";
 import { decrypt, encrypt, encryptionAvailable } from "@/lib/crypto/aes";
+import { DEMO_PERSONAS, seedDemoMail, type DemoPersona } from "./providers/demo";
 
 const MEMORY = new Map<string, Account[]>();
 
 export function ensureSessionId(cookieHeader: string | null): string {
   const m = (cookieHeader ?? "").match(/mailpilot_sid=([a-f0-9]{32})/);
   return m?.[1] ?? crypto.randomBytes(16).toString("hex");
+}
+
+// ---------- demo-persona cookie hydration ----------
+// Vercel serverless lambdas don't share in-memory state across cold starts
+// or instances. The `mailpilot_demo` cookie carries the activated demo
+// personas; on every request we lazily rebuild MEMORY for that session from
+// the cookie so the in-memory backend behaves like a persistent one for the
+// demo flow.
+
+const DEMO_COOKIE = "mailpilot_demo";
+const VALID_PERSONAS = new Set(DEMO_PERSONAS.map((p) => p.persona));
+
+export function parseDemoPersonas(cookieHeader: string | null): DemoPersona[] {
+  // Match anything up to `;` so we don't trip on URL-encoded characters like
+  // `%2C` (Next.js encodes commas in cookie values when calling Set-Cookie).
+  const m = (cookieHeader ?? "").match(new RegExp(`${DEMO_COOKIE}=([^;]+)`));
+  if (!m) return [];
+  let decoded = m[1];
+  try {
+    decoded = decodeURIComponent(m[1]);
+  } catch {
+    /* malformed encoding — fall back to raw value */
+  }
+  const parts = decoded.split(",").filter(Boolean);
+  return parts.filter((p): p is DemoPersona => VALID_PERSONAS.has(p as DemoPersona));
+}
+
+export function demoAccountIdFor(persona: DemoPersona, sessionId: string): string {
+  return `demo-${persona}-${sessionId.slice(0, 8)}`;
+}
+
+export function serializeDemoCookie(personas: DemoPersona[]): string {
+  return Array.from(new Set(personas)).join(",");
+}
+
+/**
+ * Idempotent: ensures MEMORY has demo accounts for every persona declared in
+ * the cookie and that each one's mailbox is seeded. Safe to call on every
+ * request. Required because Vercel serverless cold starts wipe MEMORY.
+ */
+export function hydrateDemoAccounts(
+  sessionId: string,
+  cookieHeader: string | null,
+): void {
+  const personas = parseDemoPersonas(cookieHeader);
+  if (personas.length === 0) return;
+  const cur = MEMORY.get(sessionId) ?? [];
+  let mutated = false;
+  for (const persona of personas) {
+    const info = DEMO_PERSONAS.find((p) => p.persona === persona);
+    if (!info) continue;
+    const id = demoAccountIdFor(persona, sessionId);
+    let existing = cur.find((a) => a.id === id);
+    if (!existing) {
+      existing = {
+        id,
+        provider: "demo",
+        email: info.email,
+        displayName: info.displayName,
+        addedAt: new Date().toISOString(),
+      };
+      cur.push(existing);
+      mutated = true;
+    }
+    // Always re-seed mail when STORE doesn't have it (cold-start recovery)
+    seedDemoMail(id, persona);
+  }
+  if (mutated) MEMORY.set(sessionId, cur);
 }
 
 export async function listAccounts(sessionId: string): Promise<Account[]> {

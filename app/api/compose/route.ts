@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import nodemailer from "nodemailer";
-import { ensureSessionId, getAccount } from "@/lib/email/store";
+import { ensureSessionId, getAccount, hydrateDemoAccounts } from "@/lib/email/store";
 import { provider } from "@/lib/email/providers";
 
 export const runtime = "nodejs";
@@ -17,7 +17,9 @@ interface ComposeBody {
 }
 
 export async function POST(req: NextRequest) {
-  const sid = ensureSessionId(req.headers.get("cookie"));
+  const cookieHeader = req.headers.get("cookie");
+  const sid = ensureSessionId(cookieHeader);
+  hydrateDemoAccounts(sid, cookieHeader);
   const body = await req.json().catch(() => null) as ComposeBody | null;
   if (!body || !body.accountId || !body.to || !body.subject || !body.body) {
     return NextResponse.json({ error: "accountId, to, subject, body required" }, { status: 400 });

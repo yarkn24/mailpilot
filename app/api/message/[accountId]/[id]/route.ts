@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ensureSessionId, getAccount } from "@/lib/email/store";
+import { ensureSessionId, getAccount, hydrateDemoAccounts } from "@/lib/email/store";
 import { provider } from "@/lib/email/providers";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest, ctx: { params: Promise<{ accountId: string; id: string }> }) {
-  const sid = ensureSessionId(req.headers.get("cookie"));
+  const cookieHeader = req.headers.get("cookie");
+  const sid = ensureSessionId(cookieHeader);
+  hydrateDemoAccounts(sid, cookieHeader);
   const { accountId, id } = await ctx.params;
   const account = await getAccount(sid, accountId);
   if (!account) return NextResponse.json({ error: "account not found" }, { status: 404 });

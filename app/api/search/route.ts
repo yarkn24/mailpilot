@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ensureSessionId, listAccounts } from "@/lib/email/store";
+import { ensureSessionId, hydrateDemoAccounts, listAccounts } from "@/lib/email/store";
 import { provider } from "@/lib/email/providers";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-  const sid = ensureSessionId(req.headers.get("cookie"));
+  const cookieHeader = req.headers.get("cookie");
+  const sid = ensureSessionId(cookieHeader);
+  hydrateDemoAccounts(sid, cookieHeader);
   const url = new URL(req.url);
   const q = (url.searchParams.get("q") ?? "").trim();
   if (q.length < 2) {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ensureSessionId, listAccounts } from "@/lib/email/store";
+import { ensureSessionId, hydrateDemoAccounts, listAccounts } from "@/lib/email/store";
 import { provider } from "@/lib/email/providers";
 import { dedupeMessages, type RawMessage } from "@/lib/email/dedupe";
 
@@ -15,7 +15,9 @@ export const dynamic = "force-dynamic";
  * `error: "..."` while the rest still return.
  */
 export async function GET(req: NextRequest) {
-  const sid = ensureSessionId(req.headers.get("cookie"));
+  const cookieHeader = req.headers.get("cookie");
+  const sid = ensureSessionId(cookieHeader);
+  hydrateDemoAccounts(sid, cookieHeader);
   const accounts = await listAccounts(sid);
   if (accounts.length === 0) {
     return NextResponse.json({ messages: [], accounts: [] });
