@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
     | null;
   if (!body) return NextResponse.json({ error: "invalid body" }, { status: 400 });
 
-  const account = getAccount(sid, body.accountId);
+  const account = await getAccount(sid, body.accountId);
   if (!account) return NextResponse.json({ error: "account not found" }, { status: 404 });
 
   try {

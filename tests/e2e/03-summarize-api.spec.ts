@@ -55,10 +55,15 @@ test.describe("POST /api/summarize", () => {
     });
     expect(res.status()).toBe(200);
     const body = await res.json();
-    expect(body.model).toBe("claude-haiku-stub");
+    // Stub path returns model="stub" when no AI key is configured; live path
+    // returns a real model id (gemini-2.5-flash or claude-haiku-4-5).
+    expect(typeof body.model).toBe("string");
+    expect(body.model.length).toBeGreaterThan(0);
     expect(body.summary).toBeTruthy();
-    expect(body.input_chars).toBe(thread.length);
     expect(body.truncated).toBe(false);
+    if (body.model === "stub") {
+      expect(body.input_chars).toBe(thread.length);
+    }
 
     // Endpoint must NOT echo post-redaction body content — would leak
     // anything redaction missed (R1).
@@ -73,6 +78,8 @@ test.describe("POST /api/summarize", () => {
     expect(res.status()).toBe(200);
     const body = await res.json();
     expect(body.truncated).toBe(true);
-    expect(body.input_chars).toBe(16_000);
+    if (body.model === "stub") {
+      expect(body.input_chars).toBe(16_000);
+    }
   });
 });

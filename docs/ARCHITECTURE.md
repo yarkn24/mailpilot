@@ -38,20 +38,28 @@
 
 ## Core abstractions
 
-**EmailProvider** (`src/providers/EmailProvider.ts`):
+**Provider dispatch table** ([`lib/email/providers/index.ts`](../lib/email/providers/index.ts)) —
+the only place that switches on `account.provider`. UI and AI layers always
+talk to this, never to Gmail/Graph/IMAP directly.
+
 ```ts
-interface EmailProvider {
-  listInbox(opts: ListOpts): Promise<Message[]>
-  getThread(id: string): Promise<Thread>
-  sendMessage(draft: Draft): Promise<SendResult>
-  modify(id: string, ops: ModifyOps): Promise<void>  // archive/delete/label
-  search(q: SearchQuery): Promise<Message[]>
-  watchChanges(cb: ChangeHandler): Unsubscribe       // push or IDLE
-  capabilities(): ProviderCapabilities                // labels? threads server-side?
-}
+export const provider = {
+  testConnection: (a: Account)                          => pick(a).testConnection(a),
+  listInbox:      (a: Account, opts?: ListInboxOptions) => pick(a).listInbox(a, opts),
+  getMessageBody: (a: Account, id: string)              => pick(a).getMessageBody(a, id),
+  markRead:       (a: Account, id: string)              => pick(a).markRead(a, id),
+  archive:        (a: Account, id: string)              => pick(a).archive(a, id),
+  trash:          (a: Account, id: string)              => pick(a).trash(a, id),
+  searchInbox:    (a: Account, q: string)               => pick(a).searchInbox(a, q),
+  sendMessage:    (a: Account, opts: SendOpts)          => pick(a).sendMessage(a, opts),
+};
 ```
 
-All three adapters (`GmailProvider`, `GraphProvider`, `ImapProvider`) implement this. **UI and AI layers never see provider-specific code.** Feature detection via `capabilities()` — Gmail-only features (colored labels) gracefully no-op on IMAP.
+Three implementations: [`gmail.ts`](../lib/email/providers/gmail.ts) (REST →
+`gmail.googleapis.com`), [`graph.ts`](../lib/email/providers/graph.ts) (REST →
+`graph.microsoft.com`), [`imap.ts`](../lib/email/providers/imap.ts) (ImapFlow +
+Nodemailer). Feature detection via `ConnectionStatus.capabilities` —
+Gmail-only colored labels gracefully no-op on IMAP (CLAUDE.md R9).
 
 ## Data flow — read
 

@@ -22,4 +22,4 @@ Rules:
 - If a claim appears in only one source, mark it as unverified.
 - Maximum 600 words total.
 
-For mailpilot context: when synthesizing competitor email clients (Superhuman, Hey, Spark, Notion Mail, etc.), the actionable takeaway must be: "where mailpilot differentiates / what to NOT copy."
+For mailpilot context: when synthesizing competitor email clients across the modern category, the actionable takeaway must be: "where mailpilot differentiates / what to NOT copy."

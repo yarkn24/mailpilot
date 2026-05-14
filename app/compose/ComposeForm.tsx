@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 interface Account {
   id: string;
@@ -8,8 +8,19 @@ interface Account {
   provider: string;
 }
 
+interface Prefill {
+  to?: string;
+  cc?: string;
+  subject?: string;
+  body?: string;
+  inReplyTo?: string;
+  references?: string;
+  accountId?: string;
+}
+
 export function ComposeForm() {
   const router = useRouter();
+  const sp = useSearchParams();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -19,22 +30,57 @@ export function ComposeForm() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
+  const [loadingPrefill, setLoadingPrefill] = useState(false);
 
   useEffect(() => {
     fetch("/api/accounts")
       .then((r) => r.json())
-      .then((d) => {
-        const imap = (d.accounts ?? []).filter((a: Account) => a.provider === "imap");
-        setAccounts(imap);
-        if (imap[0]) setFrom(imap[0].id);
+      .then(async (d) => {
+        const all = (d.accounts ?? []) as Account[];
+        setAccounts(all);
+
+        const replyId = sp.get("reply");
+        const forwardId = sp.get("forward");
+        const wantAccount = sp.get("account");
+        const preferred = wantAccount
+          ? all.find((a) => a.id === wantAccount)
+          : all[0];
+        if (preferred) setFrom(preferred.id);
+
+        const queryTo = sp.get("to");
+        const querySubject = sp.get("subject");
+        if (queryTo) setTo(queryTo);
+        if (querySubject) setSubject(querySubject);
+
+        if ((replyId || forwardId) && wantAccount) {
+          setLoadingPrefill(true);
+          const id = replyId ?? forwardId!;
+          const r = await fetch(`/api/message/${wantAccount}/${id}`);
+          const m = await r.json().catch(() => null);
+          setLoadingPrefill(false);
+          if (m && !m.error) {
+            const pre = buildPrefill(m, { mode: replyId ? "reply" : "forward" });
+            applyPrefill(pre);
+          }
+        }
       });
-  }, []);
+
+    function applyPrefill(p: Prefill) {
+      if (p.to !== undefined) setTo((cur) => cur || p.to!);
+      if (p.cc !== undefined) setCc((cur) => cur || p.cc!);
+      if (p.subject !== undefined) setSubject((cur) => cur || p.subject!);
+      if (p.body !== undefined) setBodyText(p.body);
+    }
+  }, [sp]);
 
   async function send(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setBusy(true);
     try {
+      const replyId = sp.get("reply");
+      const forwardId = sp.get("forward");
+      const refMessageId = sp.get("refMessageId") ?? undefined;
       const res = await fetch("/api/compose", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -44,6 +90,8 @@ export function ComposeForm() {
           cc: cc || undefined,
           subject,
           body: bodyText,
+          inReplyTo: replyId && refMessageId ? refMessageId : undefined,
+          references: replyId && refMessageId ? refMessageId : undefined,
         }),
       });
       const d = await res.json();
@@ -63,18 +111,20 @@ export function ComposeForm() {
   if (accounts.length === 0) {
     return (
       <div className="mt-6 rounded border border-dashed border-[var(--color-ink)]/15 px-4 py-8 text-sm text-[var(--color-muted)] dark:border-white/20">
-        Connect an IMAP account first. Compose uses SMTP from the connected
-        mailbox.
+        Connect a mailbox first — Gmail, Microsoft 365, or IMAP.
       </div>
     );
   }
 
   return (
     <form onSubmit={send} className="mt-6 grid gap-3">
+      {loadingPrefill && (
+        <div className="text-xs text-[var(--color-muted)]">Loading original message…</div>
+      )}
       <Field label="From">
         <select value={from} onChange={(e) => setFrom(e.target.value)} className={inputCls}>
           {accounts.map((a) => (
-            <option key={a.id} value={a.id}>{a.email}</option>
+            <option key={a.id} value={a.id}>{a.email} · {a.provider}</option>
           ))}
         </select>
       </Field>
@@ -90,7 +140,7 @@ export function ComposeForm() {
       <Field label="Body">
         <textarea
           required
-          rows={10}
+          rows={12}
           value={bodyText}
           onChange={(e) => setBodyText(e.target.value)}
           className={inputCls + " resize-y"}
@@ -115,6 +165,30 @@ export function ComposeForm() {
       </button>
     </form>
   );
+}
+
+interface FetchedMessage {
+  html: string | null;
+  text: string | null;
+}
+
+function buildPrefill(m: FetchedMessage, opts: { mode: "reply" | "forward" }): Prefill {
+  const raw = m.text || stripHtml(m.html ?? "");
+  const quoted = raw.split("\n").map((l) => "> " + l).join("\n");
+  if (opts.mode === "reply") {
+    return { body: "\n\n" + quoted };
+  }
+  return {
+    body: "\n\n---------- Forwarded message ----------\n" + raw,
+  };
+}
+
+function stripHtml(html: string): string {
+  return html.replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 const inputCls =

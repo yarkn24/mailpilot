@@ -12,12 +12,14 @@ test.describe("landing page — public surface", () => {
     await page.goto("/");
     await expect(page).toHaveTitle(/Mailpilot/i);
 
-    // The product promise lives in the H1 (lines split by <br/>).
+    // The product promise lives in the hero — H1 + subheading.
     const h1 = page.locator("h1").first();
     await expect(h1).toBeVisible();
     await expect(h1).toContainText(/one inbox/i);
-    await expect(h1).toContainText(/three providers/i);
-    await expect(h1).toContainText(/AI that never logs/i);
+
+    // Subheading or feature cards mention the three providers + AI privacy.
+    await expect(page.getByText(/gmail.*microsoft 365.*imap/i).first()).toBeVisible();
+    await expect(page.getByText(/redact|opt-in|never stored/i).first()).toBeVisible();
 
     // Brand mark — case-insensitive (landing uses lowercase "mailpilot").
     await expect(page.getByText(/mailpilot/i).first()).toBeVisible();

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { redactForAI } from "@/lib/email/redact";
-import { getClient, MODELS } from "@/lib/ai/claude";
+import { getAIProvider } from "@/lib/ai/provider";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,12 +19,14 @@ interface PrioritizeBody {
   consent: boolean;
 }
 
-/**
- * POST /api/prioritize
- *
- * Classifies a batch of message previews into priority bands. Uses Haiku
- * (cheap, batchable). Returns { id, band } pairs.
- */
+const SYSTEM = `Classify each numbered message into one of: "high", "normal", "low".
+Output ONLY a JSON array of {n, band} matching the numbered input.
+No commentary, no markdown. Pure JSON.
+
+"high": clearly time-sensitive, personal, action-required for the user.
+"low": automated, marketing, system notifications, receipts.
+"normal": everything else.`;
+
 export async function POST(req: Request) {
   let body: PrioritizeBody;
   try {
@@ -54,41 +56,27 @@ export async function POST(req: Request) {
     })
     .join("\n");
 
-  const client = getClient();
-  if (!client) {
+  const ai = getAIProvider("fast");
+  if (!ai) {
     const stub = body.messages.map((m, i) => ({
       id: m.id,
       band: i % 3 === 0 ? "high" : i % 3 === 1 ? "normal" : "low",
     }));
-    return NextResponse.json({ model: "claude-haiku-stub", priorities: stub });
+    return NextResponse.json({ model: "stub", vendor: "none", priorities: stub });
   }
 
   try {
-    const res = await client.messages.create({
-      model: MODELS.HAIKU,
-      max_tokens: 200,
-      system: [
-        {
-          type: "text",
-          text: `Classify each message into one of: "high", "normal", "low".
-Output ONLY a JSON array of {n, band} matching the numbered input.
-No commentary, no markdown. Pure JSON.
-
-"high": clearly time-sensitive, personal, action-required for the user.
-"low": automated, marketing, system notifications, receipts.
-"normal": everything else.`,
-          cache_control: { type: "ephemeral" },
-        },
-      ],
-      messages: [{ role: "user", content: `<email>\n${lines}\n</email>` }],
+    const res = await ai.generate({
+      system: SYSTEM,
+      user: `<email>\n${lines}\n</email>`,
+      maxOutputTokens: 400,
+      responseMimeType: "application/json",
     });
-    const raw = res.content
-      .flatMap((b) => (b.type === "text" ? [b.text] : []))
-      .join("\n")
-      .trim();
+    const raw = res.text.trim();
     let parsed: { n: number; band: string }[] = [];
     try {
-      parsed = JSON.parse(raw);
+      const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
+      parsed = JSON.parse(cleaned);
     } catch {
       return NextResponse.json(
         { error: "model returned non-JSON", raw },
@@ -101,9 +89,10 @@ No commentary, no markdown. Pure JSON.
     }));
     return NextResponse.json({
       model: res.model,
+      vendor: res.vendor,
       priorities,
-      input_tokens: res.usage.input_tokens,
-      output_tokens: res.usage.output_tokens,
+      input_tokens: res.inputTokens,
+      output_tokens: res.outputTokens,
     });
   } catch (err) {
     return NextResponse.json(

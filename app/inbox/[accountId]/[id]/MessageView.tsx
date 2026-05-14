@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 interface Body {
   id: string;
@@ -13,6 +13,11 @@ interface Body {
 
 export function MessageView({ accountId, messageId }: { accountId: string; messageId: string }) {
   const router = useRouter();
+  const sp = useSearchParams();
+  const subject = sp.get("subject") ?? "";
+  const from = sp.get("from") ?? "";
+  const mid = sp.get("mid") ?? "";
+
   const [body, setBody] = useState<Body | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [summary, setSummary] = useState<string | null>(null);
@@ -32,7 +37,6 @@ export function MessageView({ accountId, messageId }: { accountId: string; messa
   }, [accountId, messageId]);
 
   useEffect(() => {
-    // Sandbox HTML body into the iframe via srcdoc with sandbox flags.
     if (iframeRef.current && body?.html) {
       iframeRef.current.srcdoc = body.html;
     }
@@ -95,6 +99,15 @@ export function MessageView({ accountId, messageId }: { accountId: string; messa
   }
   if (!body) return <div className="text-sm text-[var(--color-muted)]">Loading…</div>;
 
+  const replyHref = composeHref({
+    mode: "reply",
+    accountId, messageId, subject, from, mid,
+  });
+  const forwardHref = composeHref({
+    mode: "forward",
+    accountId, messageId, subject, from, mid,
+  });
+
   return (
     <>
       <div className="flex items-center gap-2">
@@ -106,6 +119,13 @@ export function MessageView({ accountId, messageId }: { accountId: string; messa
           <ActionButton label="Trash" busy={actionBusy === "trash"} onClick={() => doAction("trash")} />
         </div>
       </div>
+
+      {subject && (
+        <h2 className="mt-4 text-lg font-semibold tracking-tight">{subject}</h2>
+      )}
+      {from && (
+        <div className="mt-1 text-xs text-[var(--color-muted)]">From: {from}</div>
+      )}
 
       <div className="mt-4 flex flex-wrap gap-2">
         <button
@@ -123,10 +143,16 @@ export function MessageView({ accountId, messageId }: { accountId: string; messa
           {drafting ? "Drafting…" : "Draft reply"}
         </button>
         <Link
-          href={`/compose?reply=${encodeURIComponent(messageId)}&account=${encodeURIComponent(accountId)}`}
+          href={replyHref}
           className="rounded-md border border-[var(--color-ink)]/15 px-3 py-1.5 text-sm font-medium hover:border-[var(--color-ink)]/40 dark:border-white/20 dark:hover:border-white/40"
         >
           Reply
+        </Link>
+        <Link
+          href={forwardHref}
+          className="rounded-md border border-[var(--color-ink)]/15 px-3 py-1.5 text-sm font-medium hover:border-[var(--color-ink)]/40 dark:border-white/20 dark:hover:border-white/40"
+        >
+          Forward
         </Link>
       </div>
 
@@ -158,6 +184,26 @@ export function MessageView({ accountId, messageId }: { accountId: string; messa
       )}
     </>
   );
+}
+
+function composeHref(o: {
+  mode: "reply" | "forward";
+  accountId: string;
+  messageId: string;
+  subject: string;
+  from: string;
+  mid: string;
+}): string {
+  const params = new URLSearchParams();
+  params.set("account", o.accountId);
+  params.set(o.mode === "reply" ? "reply" : "forward", o.messageId);
+  if (o.mid) params.set("refMessageId", o.mid);
+  if (o.subject) {
+    const cleaned = o.subject.replace(/^(re|fwd|fw):\s*/i, "");
+    params.set("subject", (o.mode === "reply" ? "Re: " : "Fwd: ") + cleaned);
+  }
+  if (o.mode === "reply" && o.from) params.set("to", o.from);
+  return `/compose?${params.toString()}`;
 }
 
 function ActionButton({ label, busy, onClick }: { label: string; busy: boolean; onClick: () => void }) {

@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(req: NextRequest) {
   const sid = ensureSessionId(req.headers.get("cookie"));
-  const accounts = listAccounts(sid);
+  const accounts = await listAccounts(sid);
   if (accounts.length === 0) {
     return NextResponse.json({ messages: [], accounts: [] });
   }
@@ -26,19 +26,23 @@ export async function GET(req: NextRequest) {
 
   const settled = await Promise.allSettled(
     accounts.map(async (a) => ({
-      accountId: a.id,
+      account: a,
       messages: await provider.listInbox(a, { limit }),
     })),
   );
 
-  const messages = [];
+  const messages: Awaited<ReturnType<typeof provider.listInbox>> = [];
+  const messageProvider = new Map<string, "gmail" | "graph" | "imap">();
   const accountStatus = [];
   for (let i = 0; i < settled.length; i++) {
     const a = accounts[i];
     const result = settled[i];
     if (result.status === "fulfilled") {
       accountStatus.push({ id: a.id, email: a.email, ok: true });
-      messages.push(...result.value.messages);
+      for (const m of result.value.messages) {
+        messages.push(m);
+        messageProvider.set(`${m.accountId}:${m.id}`, a.provider);
+      }
     } else {
       accountStatus.push({
         id: a.id,
@@ -52,7 +56,7 @@ export async function GET(req: NextRequest) {
   // Dedup by canonical Message-ID; sort newest first.
   const raw: RawMessage[] = messages.map((m) => ({
     providerId: `${m.accountId}:${m.id}`,
-    provider: "imap" as const,
+    provider: messageProvider.get(`${m.accountId}:${m.id}`) ?? "imap",
     messageId: m.messageId,
     date: new Date(m.date),
     from: m.from.address,

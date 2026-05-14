@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest, ctx: { params: Promise<{ accountId: string; id: string }> }) {
   const sid = ensureSessionId(req.headers.get("cookie"));
   const { accountId, id } = await ctx.params;
-  const account = getAccount(sid, accountId);
+  const account = await getAccount(sid, accountId);
   if (!account) return NextResponse.json({ error: "account not found" }, { status: 404 });
 
   try {

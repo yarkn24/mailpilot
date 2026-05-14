@@ -35,7 +35,7 @@ Reusable thinking tools:
 - **`/devils-advocate`** — Stress-test an architecture decision before locking it in. 4 attack dimensions, ends with a single-sentence kill argument.
 - **`/brutal-editor`** — Polish deliverable docs (CLAUDE.md, ARCHITECTURE.md, this file). Cuts, weak ideas, missing parts, structure, biggest problem.
 - **`/bullets-to-article`** — Rough notes → finished doc without losing or inventing ideas.
-- **`/multi-source-synthesis`** — Competitor research (Superhuman, Hey, Notion Mail) → one differentiation brief.
+- **`/multi-source-synthesis`** — Competitor research across the modern email-client category → one differentiation brief.
 
 These four cover the *thinking* gap that pure code-gen tools miss.
 

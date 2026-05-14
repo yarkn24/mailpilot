@@ -18,7 +18,7 @@ function withSession(res: NextResponse, sid: string) {
 
 export async function GET(req: NextRequest) {
   const sid = ensureSessionId(req.headers.get("cookie"));
-  const accounts = listAccounts(sid).map(sanitizeAccount);
+  const accounts = (await listAccounts(sid)).map(sanitizeAccount);
   return withSession(NextResponse.json({ accounts }), sid);
 }
 
@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const created = addAccount(sid, account);
+  const created = await addAccount(sid, account);
   return withSession(
     NextResponse.json({ account: sanitizeAccount(created) }, { status: 201 }),
     sid,

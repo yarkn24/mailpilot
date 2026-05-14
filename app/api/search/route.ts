@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
   if (q.length < 2) {
     return NextResponse.json({ error: "query must be at least 2 chars" }, { status: 400 });
   }
-  const accounts = listAccounts(sid);
+  const accounts = await listAccounts(sid);
   if (accounts.length === 0) return NextResponse.json({ results: [] });
 
   const settled = await Promise.allSettled(
