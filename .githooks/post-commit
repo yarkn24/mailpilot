@@ -1,0 +1,120 @@
+#!/usr/bin/env bash
+# Suspicious audit — runs after every commit.
+# Reads the commit diff and the surrounding context, then writes a
+# structured concern report to .git/suspicious-audit.log AND stdout.
+# Advisory only — never blocks. But loud.
+
+set -uo pipefail
+
+SHA=$(git rev-parse --short HEAD)
+LOGFILE=".git/suspicious-audit.log"
+
+# Pull what we need without re-running expensive analysis.
+SUBJECT=$(git log -1 --format='%s')
+BODY=$(git log -1 --format='%b')
+DIFF_STAT=$(git diff --stat HEAD~1 HEAD 2>/dev/null || echo "(initial commit)")
+DIFF=$(git diff HEAD~1 HEAD 2>/dev/null || git diff --cached)
+
+# ── checks ───────────────────────────────────────────────────────────────────
+CONCERNS=()
+PASSES=()
+
+# 1. PII guardrail in diff
+if echo "$DIFF" | grep -qE '^\+.*console\.(log|info|debug)\([^)]*\b(email|address|body|subject|from|to|cc|bcc)\b'; then
+  CONCERNS+=("[HIGH] new console.log near email fields — possible PII leak (R1)")
+else
+  PASSES+=("R1 PII: no new console.log near email fields")
+fi
+
+# 2. Provider symmetry — change to one provider without the others
+PROV_CHANGED=$(echo "$DIFF" | grep -oE '^\+\+\+ b/providers/(Gmail|Graph|Imap)Provider\.ts' | sort -u | wc -l | tr -d ' ')
+if [ "$PROV_CHANGED" -ge 1 ] && [ "$PROV_CHANGED" -lt 3 ]; then
+  CONCERNS+=("[MED] only $PROV_CHANGED/3 providers changed — check capabilities() flag (R10)")
+fi
+
+# 3. .only / .skip / .todo in tests
+if echo "$DIFF" | grep -qE '^\+.*\.(only|skip|todo)\b' ; then
+  CONCERNS+=("[HIGH] new .only/.skip/.todo in tests — must not ship")
+else
+  PASSES+=("Tests: no .only/.skip/.todo added")
+fi
+
+# 4. Weakened assertion patterns
+if echo "$DIFF" | grep -qE '^\+.*\.(toBeTruthy|toBeFalsy|toBeDefined|toMatchObject)\b' && \
+   echo "$DIFF" | grep -qE '^-.*\.(toBe|toEqual|toStrictEqual)\('; then
+  CONCERNS+=("[MED] assertion may have been weakened (toBe→toBeTruthy etc.) — review carefully")
+fi
+
+# 5. package.json without package-lock.json
+PKG_CHANGED=$(echo "$DIFF" | grep -c '^+++ b/package\.json$' || true)
+LOCK_CHANGED=$(echo "$DIFF" | grep -c '^+++ b/package-lock\.json$' || true)
+if [ "$PKG_CHANGED" -gt 0 ] && [ "$LOCK_CHANGED" -eq 0 ]; then
+  CONCERNS+=("[HIGH] package.json changed but package-lock.json did not — install missing?")
+elif [ "$PKG_CHANGED" -gt 0 ]; then
+  PASSES+=("Deps: package.json + package-lock.json moved together")
+fi
+
+# 6. env-var references not in .env.example
+NEW_ENV_REFS=$(echo "$DIFF" | grep -oE 'process\.env\.[A-Z_]+' | sort -u || true)
+if [ -n "$NEW_ENV_REFS" ] && [ -f .env.example ]; then
+  while IFS= read -r ref; do
+    var="${ref#process.env.}"
+    if ! grep -q "^${var}=" .env.example 2>/dev/null; then
+      CONCERNS+=("[MED] code references \$${var} but .env.example does not document it")
+    fi
+  done <<< "$NEW_ENV_REFS"
+fi
+
+# 7. Try/catch that swallows
+if echo "$DIFF" | grep -qE '^\+.*catch\s*\(.*\)\s*\{\s*$'; then
+  if ! echo "$DIFF" | grep -qE '^\+.*(throw|logger|console|return)'; then
+    CONCERNS+=("[MED] new catch block may swallow errors silently (R8)")
+  fi
+fi
+
+# 8. AI route added without consent gate
+if echo "$DIFF" | grep -qE '^\+\+\+ b/app/api/.*ai|summari[zs]e|prioriti|draft.*route\.ts'; then
+  if ! echo "$DIFF" | grep -qE '^\+.*consent\s*(===|!==|==|!=)\s*true'; then
+    CONCERNS+=("[HIGH] new AI route, no explicit 'consent === true' check found (R3)")
+  fi
+fi
+
+# 9. AI route added without explicit token budget
+if echo "$DIFF" | grep -qE '^\+\+\+ b/app/api/.*'; then
+  if echo "$DIFF" | grep -qE '^\+.*anthropic|openai|messages\.create' && \
+     ! echo "$DIFF" | grep -qE '^\+.*MAX_INPUT|MAX_OUTPUT|max_tokens'; then
+    CONCERNS+=("[HIGH] new model call without explicit token budget (R4)")
+  fi
+fi
+
+# 10. New files ignored by .gitignore that look like they should be tracked
+NEW_IGNORED=$(git status --short --ignored 2>/dev/null | grep '^!!' | grep -E '\.(ts|tsx|md)$' || true)
+if [ -n "$NEW_IGNORED" ]; then
+  CONCERNS+=("[LOW] gitignored files that look trackable: $NEW_IGNORED")
+fi
+
+# ── format report ───────────────────────────────────────────────────────────
+{
+  echo ""
+  echo "═══ SUSPICIOUS AUDIT — $SHA — $(date '+%F %T') ═══"
+  echo "Subject: $SUBJECT"
+  echo ""
+  echo "Diff stat:"
+  echo "$DIFF_STAT" | sed 's/^/  /'
+  echo ""
+  if [ ${#CONCERNS[@]} -eq 0 ]; then
+    echo "Concerns: none found by the heuristic suite."
+  else
+    echo "Concerns (${#CONCERNS[@]}):"
+    for c in "${CONCERNS[@]}"; do echo "  - $c"; done
+  fi
+  echo ""
+  if [ ${#PASSES[@]} -gt 0 ]; then
+    echo "Verified:"
+    for p in "${PASSES[@]}"; do echo "  ✓ $p"; done
+  fi
+  echo "═══════════════════════════════════════════════════════════"
+} | tee -a "$LOGFILE"
+
+# Advisory only — never block. Exit 0 even with concerns.
+exit 0

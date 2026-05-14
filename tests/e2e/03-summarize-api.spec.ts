@@ -49,14 +49,15 @@ test.describe("POST /api/summarize", () => {
   });
 
   test("accepts well-formed request and returns stub summary shape", async ({ request }) => {
+    const thread = "Lorem ipsum dolor sit amet.";
     const res = await request.post(ENDPOINT, {
-      data: { consent: true, thread: "Lorem ipsum dolor sit amet." },
+      data: { consent: true, thread },
     });
     expect(res.status()).toBe(200);
     const body = await res.json();
     expect(body.model).toBe("claude-haiku-stub");
     expect(body.summary).toBeTruthy();
-    expect(body.input_chars).toBe(26);
+    expect(body.input_chars).toBe(thread.length);
     expect(body.truncated).toBe(false);
 
     // Endpoint must NOT echo post-redaction body content — would leak

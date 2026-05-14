@@ -25,20 +25,21 @@ export default function Home() {
 
       <section className="mt-16 sm:mt-24">
         <p className="text-xs font-medium uppercase tracking-[0.2em] text-[var(--color-accent)]">
-          AI-first email · Gmail · Microsoft 365 · IMAP
+          Gmail · Microsoft 365 · IMAP — one inbox
         </p>
         <h1 className="mt-4 text-5xl font-bold leading-[1.05] tracking-tight sm:text-7xl">
-          One inbox.
-          <br />
           Three providers.
+          <br />
+          One inbox.
           <br />
           AI that never logs.
         </h1>
         <p className="mt-6 max-w-xl text-lg text-[var(--color-muted)] sm:text-xl">
-          A universal email client built mobile-first, with summaries, reply drafts,
-          and prioritization powered by Claude. Privacy-respecting: AI is opt-in per
-          mailbox, content never leaves a redaction layer, and bodies are never
-          stored long-term.
+          Connect a mailbox. Read it. Move on.
+          <br />
+          AI summarizes, drafts, prioritizes — opt-in per mailbox, default off.
+          <br />
+          Bodies are not stored. Addresses are redacted before any model call.
         </p>
 
         <div className="mt-10 flex flex-col gap-3 sm:flex-row">
@@ -46,9 +47,9 @@ export default function Home() {
             type="button"
             disabled
             className="cursor-not-allowed rounded-md bg-[var(--color-ink)] px-5 py-3 text-sm font-medium text-[var(--color-paper)] opacity-60 dark:bg-[var(--color-paper)] dark:text-[var(--color-ink)]"
-            title="Auth flow ships in the next iteration"
+            title="Mailbox connect ships next"
           >
-            Connect mailbox · soon
+            Connect mailbox · next iteration
           </button>
           <a
             href="https://github.com/yarkn24/mailpilot/blob/main/docs/ARCHITECTURE.md"
@@ -61,16 +62,16 @@ export default function Home() {
 
       <section className="mt-16 grid gap-6 sm:mt-24 sm:grid-cols-3">
         <Feature
-          title="Unified inbox"
-          body="Gmail, Microsoft 365, and any IMAP provider in one stream. Deduped by Message-ID across accounts."
+          title="One inbox, three providers"
+          body="Gmail, Microsoft 365, IMAP. Deduped by Message-ID. No lowest-common-denominator UI — provider features surface via capabilities, not by blending."
         />
         <Feature
-          title="AI that asks first"
-          body="Summaries, drafts, and prioritization are opt-in per mailbox. Default off. Some employers ban LLM email processing — we respect that."
+          title="AI asks first"
+          body="Summaries, drafts, prioritization — opt-in per mailbox, default off. Some companies prohibit LLM email processing. We respect that."
         />
         <Feature
-          title="PWA, mobile-first"
-          body="Installable, offline-capable, push-enabled. Designed for 360px before it's designed for 1440px."
+          title="100ms or it didn't happen"
+          body="Mobile-first. Keyboard-first. Optimistic UI on every mutation. 360px is the design target, not the afterthought."
         />
       </section>
 

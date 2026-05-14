@@ -20,10 +20,11 @@ export default defineConfig({
     ["html", { outputFolder: "playwright-report", open: "never" }],
   ],
   outputDir: "test-results",
+  preserveOutput: "always",
   use: {
     baseURL: process.env.PLAYWRIGHT_BASE_URL || "https://mailpilot-virid.vercel.app",
     trace: "on-first-retry",
-    video: "on",
+    video: { mode: "on", size: { width: 1280, height: 720 } },
     screenshot: "only-on-failure",
   },
   projects: [
