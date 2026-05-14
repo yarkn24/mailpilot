@@ -128,3 +128,8 @@ Ask. Don't guess on:
 - AI prompt formatting that affects cost
 - Anything touching PII handling
 - Anything that ships to production without preview review
+
+<!-- SPECKIT START -->
+For additional context about technologies to be used, project structure,
+shell commands, and other important information, read the current plan
+<!-- SPECKIT END -->

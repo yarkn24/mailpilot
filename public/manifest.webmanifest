@@ -1,0 +1,29 @@
+{
+  "name": "Mailpilot",
+  "short_name": "Mailpilot",
+  "description": "AI-first universal email client for Gmail, Office 365, and IMAP.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fafaf7",
+  "theme_color": "#2563eb",
+  "orientation": "portrait-primary",
+  "categories": ["productivity", "communication"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "share_target": {
+    "action": "/compose",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "subject",
+      "text": "body",
+      "url": "url"
+    }
+  }
+}

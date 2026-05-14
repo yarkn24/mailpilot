@@ -1,0 +1,59 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+.next/
+out/
+dist/
+build/
+
+# Environment
+.env
+.env.local
+.env*.local
+.env.development
+.env.production
+.env.test
+
+# Vercel
+.vercel
+.turbo
+
+# Testing
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+playwright/.cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-debug.log*
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Claude Code — keep commands/agents/skills tracked; ignore any local credentials
+.claude/.credentials*
+.claude/local/
+.claude/settings.local.json
+
+# Spec-kit working dirs (specs and plans are tracked; runtime state is not)
+.specify/.cache/
+.specify/.tmp/
