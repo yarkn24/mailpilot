@@ -42,6 +42,10 @@ export default function SettingsPage() {
             <code style={{ background: "var(--color-sky-dust)", padding: "1px 6px", borderRadius: 4 }}>Mail.ReadWrite</code>,{" "}
             <code style={{ background: "var(--color-sky-dust)", padding: "1px 6px", borderRadius: 4 }}>Mail.Send</code>,{" "}
             <code style={{ background: "var(--color-sky-dust)", padding: "1px 6px", borderRadius: 4 }}>offline_access</code>.
+            For personal Outlook/Hotmail/Live accounts you can also use the IMAP
+            form below — Microsoft exposes IMAP at{" "}
+            <code style={{ background: "var(--color-sky-dust)", padding: "1px 6px", borderRadius: 4 }}>outlook.office365.com:993</code>{" "}
+            and an app password works.
           </p>
           <a href="/api/oauth/graph/start" className="btn-primary mt-3">
             Connect Microsoft 365
@@ -52,8 +56,9 @@ export default function SettingsPage() {
           <h2 className="t-subheading">Connect IMAP mailbox</h2>
           <p className="t-caption mt-2" style={{ color: "var(--color-deep-space)" }}>
             Use an <strong>app password</strong>, not your real account
-            password. Yahoo, AOL, and iCloud require app passwords from their
-            security settings.
+            password. Auto-detected presets: Yahoo, AOL, iCloud, Fastmail,
+            Outlook/Hotmail/Live/MSN. Others can be added via the Advanced
+            section.
           </p>
           <ConnectImap />
         </section>

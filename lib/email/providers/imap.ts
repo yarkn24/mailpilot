@@ -22,6 +22,10 @@ const PROVIDER_PRESETS: Record<string, { host: string; port: number; smtpHost: s
   "aol.com":       { host: "imap.aol.com",         port: 993, smtpHost: "smtp.aol.com",         smtpPort: 465 },
   "fastmail.com":  { host: "imap.fastmail.com",    port: 993, smtpHost: "smtp.fastmail.com",    smtpPort: 465 },
   "icloud.com":    { host: "imap.mail.me.com",     port: 993, smtpHost: "smtp.mail.me.com",     smtpPort: 587 },
+  "outlook.com":   { host: "outlook.office365.com", port: 993, smtpHost: "smtp-mail.outlook.com", smtpPort: 587 },
+  "hotmail.com":   { host: "outlook.office365.com", port: 993, smtpHost: "smtp-mail.outlook.com", smtpPort: 587 },
+  "live.com":      { host: "outlook.office365.com", port: 993, smtpHost: "smtp-mail.outlook.com", smtpPort: 587 },
+  "msn.com":       { host: "outlook.office365.com", port: 993, smtpHost: "smtp-mail.outlook.com", smtpPort: 587 },
 };
 
 export function presetForDomain(email: string) {
