@@ -23,22 +23,22 @@ export default function Home() {
             not stored. Addresses are redacted before any model call.
           </p>
 
-          <div className="mt-8 flex flex-wrap gap-3 font-mono text-[13px]">
+          <div className="mt-8 flex flex-wrap gap-3 font-mono text-sm">
             <Link
               href="/settings"
-              className="border border-[var(--color-ink)] px-4 py-2 font-medium hover:bg-[var(--color-ink)] hover:text-[var(--color-paper)]"
+              className="inline-flex min-h-[44px] items-center border border-[var(--color-ink)] px-4 font-medium hover:bg-[var(--color-ink)] hover:text-[var(--color-paper)]"
             >
               $ connect mailbox →
             </Link>
             <Link
               href="/inbox"
-              className="border border-[var(--color-rule)] px-4 py-2 font-medium hover:border-[var(--color-ink)]"
+              className="inline-flex min-h-[44px] items-center border border-[var(--color-rule)] px-4 font-medium hover:border-[var(--color-ink)]"
             >
               open inbox
             </Link>
             <a
               href="https://github.com/yarkn24/mailpilot/blob/main/docs/ARCHITECTURE.md"
-              className="border border-transparent px-4 py-2 font-medium text-[var(--color-muted)] hover:text-[var(--color-ink)] dark:hover:text-white"
+              className="inline-flex min-h-[44px] items-center border border-transparent px-4 font-medium text-[var(--color-muted)] hover:text-[var(--color-ink)] dark:hover:text-white"
             >
               read the architecture
             </a>
