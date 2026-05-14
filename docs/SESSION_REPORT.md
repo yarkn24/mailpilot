@@ -1,6 +1,6 @@
-# AFK end-of-session report
+# Autonomous build — session report
 
-**Sessions:** 2026-05-14, three AFK pushes (functional MVP → universal-providers/Forward/switcher/Agent OS → Gemini multi-vendor AI + Supabase persistence)
+**Sessions:** 2026-05-14, three autonomous pushes (functional MVP → universal-providers/Forward/switcher/Agent OS → Gemini multi-vendor AI + Supabase persistence)
 **Live URL:** https://mailpilot-virid.vercel.app
 **Repo:** https://github.com/yarkn24/mailpilot (private)
 
@@ -104,7 +104,7 @@
 - `npm run build` — 19 routes, no errors (Next.js 16.2.6 + Turbopack)
 - Lint script noop'd (Next 16 removed `next lint`; pre-commit's `|| true`
   already accommodates)
-- Tests **not run** in this AFK push per operator directive — operator
+- Tests **not run** in this autonomous push per operator directive — operator
   triggers final test pass at end.
 
 ## To go FULLY live (operator action required)

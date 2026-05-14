@@ -1,89 +1,101 @@
 # Mailpilot
 
-**AI-first universal email client. Mobile-ready PWA. Gmail + Office 365 + IMAP.**
+**An AI-first universal email client — built autonomously with Claude Code, multi-agent orchestration, and spec-driven development.**
 
-One inbox. Three providers. AI that drafts, summarizes, and prioritizes — never logs.
+The product is real (Gmail + Microsoft 365 + IMAP, unified inbox, AI summary/draft/prioritize, mobile-ready PWA). The point of this repo, though, is the **build process**: how a single operator can orchestrate Claude Code agents to design, code, test, commit, push, and deploy a non-trivial product mostly autonomously, with the human in a review/approve loop.
 
----
-
-## What it does
-
-- **Unified inbox** across Gmail, Microsoft 365 (Graph), and any IMAP host (Yahoo, AOL, custom).
-- **Account switching** without re-auth on every visit.
-- **Compose / reply / forward** with provider-native send paths.
-- **Search, labels, archive, delete** — keyboard-first, optimistic UI.
-- **AI summaries** of long threads (Claude Haiku).
-- **AI reply drafts** that match the user's tone (Claude Sonnet).
-- **AI prioritization** — surfaces what matters, demotes what doesn't.
-- **PWA** — installable, offline-capable, push-enabled.
+**Live demo:** https://mailpilot-virid.vercel.app
+**Built with:** Claude Code CLI · Anthropic SDK · Spec Kit (GitHub) · Agent OS (BuilderMethods) · Superpowers plugin · Vercel · Next.js 16 · Supabase
 
 ---
 
-## Architecture (one screen)
+## How this repo was built (the actually-interesting part)
+
+Three autonomous Claude Code sessions. The operator set a goal, walked away, and came back to a deployed live URL plus a written end-of-session report at [`docs/SESSION_REPORT.md`](docs/SESSION_REPORT.md). The full skill/technique log is at [`docs/USED_SKILLS_AND_TECHNIQUES.md`](docs/USED_SKILLS_AND_TECHNIQUES.md).
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│  PWA (Next.js 16 App Router + React 19 + Tailwind v4)        │
-│  Service Worker · Web App Manifest · Push                    │
-└─────────────┬────────────────────────────────────────────────┘
-              │
-              ▼
-┌──────────────────────────────────────────────────────────────┐
-│  API routes / Server Actions (Vercel Functions)              │
-│  Clerk auth · per-provider OAuth · rate-limited              │
-└─────┬──────────────┬──────────────┬──────────────┬───────────┘
-      │              │              │              │
-      ▼              ▼              ▼              ▼
-┌─────────┐   ┌──────────┐   ┌────────────┐  ┌──────────────┐
-│ Gmail   │   │ Graph    │   │ ImapFlow   │  │ AI SDK       │
-│ API     │   │ (M365)   │   │ (IMAP)     │  │ (Claude)     │
-└─────────┘   └──────────┘   └────────────┘  └──────────────┘
-                  │
-                  ▼
-┌──────────────────────────────────────────────────────────────┐
-│  EmailProvider interface (providers/EmailProvider.ts)        │
-│  All UI/business code talks ONLY to this interface           │
-└──────────────────────────────────────────────────────────────┘
-
-State: TanStack Query (server) + Zustand (client)
-Metadata DB: Neon Postgres (Vercel Marketplace)
-Messages: never stored — fetched from provider on demand, cached in IDB
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ Operator                                                                     │
+│   ▼                                                                          │
+│ Goal handed off → Claude Code (main agent)                                   │
+│   ├─ TodoWrite — plans + tracks the work                                     │
+│   ├─ Spawns sub-agents in parallel when work is independent                  │
+│   │    email-parser · ui-designer · deploy-engineer · ai-engineer            │
+│   │    security-engineer · qa-engineer · hacker-engineer · auditor           │
+│   ├─ Skills (.claude/skills/ + Superpowers plugin)                           │
+│   │    /speckit-{specify, plan, tasks, implement, …} — Spec Kit              │
+│   │    /loop · /schedule · /to-issues · /grill-me · using-superpowers        │
+│   ├─ Slash commands (.claude/commands/)                                      │
+│   │    /devils-advocate · /brutal-editor · /multi-source-synthesis           │
+│   ├─ Hooks (.githooks/)                                                      │
+│   │    pre-commit (typecheck + lint + tests + PII guardrail)                 │
+│   │    post-merge (deps drift alert)                                         │
+│   │    post-commit (auditor sub-agent reviews every commit's diff)           │
+│   ├─ Read / Edit / Write / Bash / Grep — direct file + shell                 │
+│   └─ vercel CLI / gh CLI / git — push, PR, deploy without leaving terminal  │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
 
-Full breakdown in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+### What's in this repo, organised by JD-keyword
 
----
-
-## Built with Claude Code discipline
-
-This repo is also a demonstration of agent-driven development:
-
-- **[CLAUDE.md](CLAUDE.md)** — project rules (stack, PII, provider abstraction, fail-loud, …)
-- **[.claude/agents/](.claude/agents/)** — 8 specialized sub-agents (`email-parser`, `ui-designer`, `deploy-engineer`, `ai-engineer`, `security-engineer`, `qa-engineer`, `hacker-engineer`, `auditor`)
-- **[.claude/commands/](.claude/commands/)** — slash commands (`/devils-advocate`, `/brutal-editor`, `/bullets-to-article`, `/multi-source-synthesis`)
-- **[.claude/skills/](.claude/skills/)** — 14 Spec Kit skills (`/speckit-constitution`, `/speckit-specify`, `/speckit-plan`, `/speckit-tasks`, `/speckit-implement`, …) + git extension skills
-- **[.specify/](.specify/)** — Spec Kit by GitHub: constitution + spec-driven dev artifacts
-- **[.agent-os/](.agent-os/)** — Agent OS methodology: product (mission/roadmap/tech-stack), standards (code-style/best-practices), instructions, specs
-- **[.githooks/](.githooks/)** — 3 git hooks: `pre-commit` (typecheck + lint + tests + PII guard), `post-merge` (deps drift), `post-commit` (auditor sub-agent)
-- **[docs/WORKFLOW.md](docs/WORKFLOW.md)** — multi-agent workflow writeup
-- **[docs/USED_SKILLS_AND_TECHNIQUES.md](docs/USED_SKILLS_AND_TECHNIQUES.md)** — live log of every skill/technique used
-
----
-
-## Stack
-
-| Layer | Tech |
+| Job-listing concept | Where it lives in this repo |
 |---|---|
-| UI | Next.js 16, React 19, TypeScript strict, Tailwind v4 |
-| State | TanStack Query, Zustand |
-| PWA | Web App Manifest, custom Service Worker |
-| Auth (mailboxes) | per-provider OAuth (PKCE) + token vault |
-| Email | Gmail API · Microsoft Graph · ImapFlow |
-| AI | Multi-vendor: Gemini 2.5 (free tier) **or** Anthropic Claude — picked by env at runtime |
-| Persistence | Supabase Postgres (recommended) **or** in-memory fallback |
-| At-rest crypto | AES-256-GCM with `MAILPILOT_ENCRYPTION_KEY` for IMAP passwords + OAuth refresh tokens |
-| Deploy | Vercel (preview per branch, prod on main) |
-| Tests | Vitest (unit), Playwright (e2e), MSW (network mocks) |
+| `claude.md` | [`CLAUDE.md`](CLAUDE.md) — 10 project rules + global Karpathy rules inherited |
+| Multi-agent coding systems | [`.claude/agents/`](.claude/agents/) — 8 specialised sub-agents |
+| Specs-driven development | [`.specify/`](.specify/) (Spec Kit by GitHub) + [`.agent-os/specs/`](.agent-os/specs/) |
+| Skills architecture | [`.claude/skills/`](.claude/skills/) — 14 Spec Kit skills + Superpowers, frontend-design, webapp-testing |
+| Hooks | [`.githooks/`](.githooks/) — pre-commit, post-merge, post-commit (auditor) |
+| Plugins | Superpowers · Vercel · GitHub · Playwright · Chrome DevTools MCP — leveraged from `~/.claude/plugins/` |
+| Autonomous execution | Autonomous Claude Code sessions — see [`docs/SESSION_REPORT.md`](docs/SESSION_REPORT.md) for end-of-session reports |
+| Self-improving agents | The **auditor** post-commit hook reviews every diff, writes to `.git/suspicious-audit.log` |
+| Git/GitHub workflows | All commits, pushes, and deploys executed by Claude via `gh` + `vercel` CLI |
+| CI/CD orchestration | Vercel auto-deploy on push to `main` · branch previews · Vercel CLI direct deploys |
+| Spec-driven dev | `/speckit-constitution → specify → plan → tasks → implement` workflow ([`docs/WORKFLOW.md`](docs/WORKFLOW.md)) |
+| Agent OS methodology | [`.agent-os/`](.agent-os/) — product (mission/roadmap/tech-stack), standards, instructions, specs |
+| Continuous autonomous execution | `/loop` skill + `ScheduleWakeup` for cron-like agent re-entry |
+| AI-driven SDLC | Tests authored + run, commits authored, PR + deploys all initiated by Claude |
+
+### Stats from this build
+
+- **3 autonomous sessions** to ship a working product + full Claude-Code-discipline scaffolding
+- **22 unit tests** (Vitest) + **44 E2E tests** (Playwright, mobile + desktop) — passing
+- **8 sub-agents** × **4 custom slash commands** × **14 skills** × **3 git hooks**
+- **19 production routes** on Vercel
+- **52 files** in the final atomic commit covering universal providers, AI vendor abstraction, Supabase persistence, Agent OS, encryption-at-rest, and Forward UI
+- **Zero manual code** during autonomous execution — operator gave goals, Claude orchestrated agents to fulfil them
+
+---
+
+## What the product does (the artifact, briefly)
+
+- **Unified inbox** across Gmail (REST), Microsoft 365 (Graph), and any IMAP host (Yahoo/AOL/iCloud/Fastmail/custom).
+- **Account switching** with per-account unread counts; one-click chip filter.
+- **Compose · Reply · Forward** with provider-native send paths (Gmail `messages/send` raw RFC822 · Graph `/sendMail` · IMAP via Nodemailer SMTP).
+- **Search · Labels · Archive · Trash · Mark-read** via a single dispatch table (`lib/email/providers/index.ts`) — UI never touches a provider SDK directly.
+- **AI summaries / reply drafts / prioritization** — multi-vendor: picks Gemini 2.5 (free tier) if `GEMINI_API_KEY` is set, falls back to Claude Haiku/Sonnet if `ANTHROPIC_API_KEY` is set, otherwise returns a stub with a clear "configure a key" message.
+- **PWA** — installable, offline-capable, push-ready.
+- **Persistence** — Supabase Postgres with AES-256-GCM at-rest encryption when configured; in-memory fallback for zero-config dev.
+
+Full architecture: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+
+---
+
+## Project rules (the discipline)
+
+Encoded in [`CLAUDE.md`](CLAUDE.md). Highlights:
+
+- **R1** Email data is never logged. PII guard runs in pre-commit hook.
+- **R2** Provider abstraction is mandatory. One dispatch table, three implementations.
+- **R3** AI is opt-in per-mailbox, default OFF. If AI is off, the button doesn't render.
+- **R4** Token budgets enforced in code, not just docs.
+- **R5** Optimistic UI for archive/delete/mark-read/send.
+- **R6** Tests verify intent, not just behaviour.
+- **R7** Checkpoint after each significant step (the session reports do exactly this).
+- **R8** Fail loud, never silent.
+- **R9** UI never reaches across providers — capability flags drive behaviour.
+- **R10** Read before you write — especially across the three provider implementations.
+
+The global `~/.claude/CLAUDE.md` (Karpathy's 4 rules) compounds on top.
 
 ---
 
@@ -93,52 +105,33 @@ This repo is also a demonstration of agent-driven development:
 |---|---|---|
 | Landing page | ✅ | https://mailpilot-virid.vercel.app |
 | IMAP connect (Yahoo, AOL, iCloud, Fastmail, custom) | ✅ | App password required; live IMAP test before save |
-| Gmail OAuth + Gmail REST adapter | ✅ code · ⏳ creds | PKCE flow at `/api/oauth/gmail/*`; needs `GOOGLE_CLIENT_ID/SECRET/REDIRECT_URI` in Vercel env |
-| Microsoft 365 OAuth + Graph REST adapter | ✅ code · ⏳ creds | Same shape; needs `MICROSOFT_CLIENT_ID/SECRET/REDIRECT_URI` in Vercel env |
-| Unified inbox across all three providers | ✅ | Fans out via `provider.listInbox`; deduped by Message-ID; per-provider failure degrades gracefully |
-| Account switcher chips | ✅ | Per-account unread counts; client-side filter (no extra network) |
-| Read message body (HTML sandboxed) | ✅ | Iframe `sandbox=""` + no script execution |
+| Gmail OAuth + REST adapter | ✅ code · ⏳ creds | PKCE flow at `/api/oauth/gmail/*`; operator sets `GOOGLE_CLIENT_ID/SECRET/REDIRECT_URI` |
+| Microsoft 365 OAuth + Graph REST adapter | ✅ code · ⏳ creds | Same shape; operator sets `MICROSOFT_CLIENT_ID/SECRET/REDIRECT_URI` |
+| Unified inbox across all three providers | ✅ | Fans out via `provider.listInbox`; dedupe by Message-ID; one slow provider can't blank the whole inbox |
+| Account switcher chips | ✅ | Per-account unread counts; client-side filter |
+| Read message body (HTML sandboxed) | ✅ | `<iframe sandbox=""> referrerPolicy="no-referrer"` |
 | Archive / Trash / Mark read | ✅ | Provider-native verbs through dispatch table |
-| Compose | ✅ | Gmail `messages/send` raw RFC822 · Graph `/sendMail` · IMAP via Nodemailer SMTP |
-| Reply | ✅ | Pre-fills `To`, `Re: <subject>`, quoted body |
-| Forward | ✅ | Pre-fills `Fwd: <subject>`, full body as `---------- Forwarded message ----------` |
-| Search | ✅ | Provider-native: IMAP `SEARCH BODY` · Gmail `?q=` · Graph `$search` |
-| AI Summary | ✅ when `GEMINI_API_KEY` or `ANTHROPIC_API_KEY` set | Gemini 2.5 Flash or Claude Haiku 4.5; stub otherwise |
-| AI Reply draft | ✅ when key set | Gemini 2.5 Pro or Claude Sonnet 4.6; tone-controlled |
-| AI Prioritization | ✅ when key set | Batched JSON; returns priority band per message |
+| Compose · Reply · Forward | ✅ | Reply prefills `Re:`+quoted body; Forward prefills `Fwd:`+separator |
+| Search | ✅ | IMAP `SEARCH BODY` · Gmail `?q=` · Graph `$search` |
+| AI Summary / Draft / Prioritize | ✅ when `GEMINI_API_KEY` or `ANTHROPIC_API_KEY` set | Gemini 2.5 Flash/Pro or Claude Haiku/Sonnet; stub otherwise |
 | Persistence | ✅ when Supabase env set | Supabase + AES-GCM at-rest crypto; in-memory fallback |
 
-## Development
+---
+
+## How to run
 
 ```bash
+git clone https://github.com/yarkn24/mailpilot
+cd mailpilot
 npm install
-npm run dev                  # local dev server on :3000
-
-npm run typecheck            # tsc --noEmit
-npm test                     # vitest unit tests
-npm run test:e2e             # playwright
-
-npm run build                # next build — also catches SSR errors
+npm test              # 22 unit tests (vitest)
+npm run test:e2e      # 44 e2e tests (playwright)
+npm run typecheck     # tsc --noEmit
+npm run build         # next build
+npm run dev           # local dev on :3000
 ```
 
-Required environment variables: see `.env.example`.
-
-## Quick demo
-
-### IMAP path (zero config)
-
-1. Open the live URL → **Settings** → fill the IMAP form with your Yahoo/AOL/iCloud/Fastmail email and an **app password** (generate from your provider's security settings).
-2. **Inbox** shows your latest 25 messages with an account-switcher chip.
-3. Open a message → **Summarize**, **Draft reply**, **Reply**, or **Forward**.
-4. Use **Archive** or **Trash** from the message header.
-
-### Gmail / Microsoft 365 path (requires server env)
-
-1. The operator installs OAuth credentials in Vercel env (see [`docs/AFK_REPORT.md`](docs/AFK_REPORT.md) for the exact `GOOGLE_*` / `MICROSOFT_*` variables and the Google Cloud / Entra setup steps).
-2. From **Settings**, click **Connect Gmail** or **Connect Microsoft 365** → provider consent screen → callback drops you back at `/settings?connected=...`.
-3. The unified inbox now merges Gmail + M365 + IMAP through one dispatch layer.
-
-Storage is in-memory (per session cookie) in this preview — disconnecting and reconnecting will not persist accounts across server restarts. Production uses Neon Postgres with per-user KEK encryption.
+Env vars to enable each feature: see [`.env.example`](.env.example).
 
 ---
 
