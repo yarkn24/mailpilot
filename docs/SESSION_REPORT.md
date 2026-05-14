@@ -1,8 +1,13 @@
 # Autonomous build — session report
 
-**Sessions:** 2026-05-14, three autonomous pushes (functional MVP → universal-providers/Forward/switcher/Agent OS → Gemini multi-vendor AI + Supabase persistence)
+**Sessions:** 2026-05-14, four autonomous pushes
+1. Functional MVP (IMAP path + AI scaffold)
+2. Universal providers + Forward + account switcher + Agent OS
+3. Gemini multi-vendor AI + Supabase persistence + at-rest crypto
+4. Gmail OAuth credentials live in production env; Outlook/Hotmail IMAP preset added
+
 **Live URL:** https://mailpilot-virid.vercel.app
-**Repo:** https://github.com/yarkn24/mailpilot (private)
+**Repo:** https://github.com/yarkn24/mailpilot
 
 ---
 
@@ -107,17 +112,34 @@
 - Tests **not run** in this autonomous push per operator directive — operator
   triggers final test pass at end.
 
-## To go FULLY live (operator action required)
+## Submission state (push #4)
 
-| # | Env var(s) | Where to get | What it unlocks |
-|---|---|---|---|
-| 1 | `GEMINI_API_KEY` | https://aistudio.google.com/app/apikey (free tier) | A1+A2+A3 AI features go live |
-| 2 | `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` | supabase.com → new project → Settings → API | Account persistence across cold starts |
-| 3 | `MAILPILOT_ENCRYPTION_KEY` | `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"` | At-rest encryption when Supabase active |
-| 4 | `GOOGLE_CLIENT_ID/SECRET/REDIRECT_URI` | console.cloud.google.com OAuth client | P2 Gmail flow live |
-| 5 | `MICROSOFT_CLIENT_ID/SECRET/REDIRECT_URI` | entra.microsoft.com app registration | P3 M365 flow live |
+**Live URL:** https://mailpilot-virid.vercel.app — running the 5h-old deploy.
+The current code on `main` (commit `d1ca3b2`) is NOT yet live because Vercel's
+build queue on this account stopped picking up new deploys ~5h ago (all
+attempts since show "UNKNOWN" with `[0ms]` build time and empty logs — a
+platform-side issue, not a code issue). When the queue clears, the next
+push or manual web-dashboard redeploy will pick up all four env vars below.
 
-After #2 → run `lib/db/schema.sql` in Supabase SQL Editor once.
+**Env vars saved on Vercel (production scope):**
+
+| Env | Status | Purpose |
+|---|---|---|
+| `GOOGLE_CLIENT_ID` | ✅ set | Gmail OAuth client ID |
+| `GOOGLE_CLIENT_SECRET` | ✅ set | Gmail OAuth client secret |
+| `GOOGLE_REDIRECT_URI` | ✅ set | `https://mailpilot-virid.vercel.app/api/oauth/gmail/callback` |
+| `GEMINI_API_KEY` | ⏳ pending | Operator can add for free AI; routes degrade to stub when absent |
+| `MICROSOFT_*` | ⏳ pending | Operator's personal Hotmail couldn't open an Entra tenant; Outlook/Hotmail accounts go through IMAP at `outlook.office365.com:993` instead (preset auto-detected) |
+| `SUPABASE_URL` + `SERVICE_ROLE_KEY` | ⏳ pending | Persistence; in-memory fallback active until set |
+| `MAILPILOT_ENCRYPTION_KEY` | ⏳ pending | Required when Supabase is active |
+
+**To pick up the env vars next:**
+
+1. Vercel dashboard → Deployments → "Redeploy" (web UI is more reliable than
+   CLI right now), **or**
+2. Wait for Vercel build queue to clear, then push any commit — auto-deploy
+   will trigger if git integration is on (it's not on this repo yet; enabling
+   takes one click in the Vercel project settings).
 
 ## Original pending list (operator action required)
 
