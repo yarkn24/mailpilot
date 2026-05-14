@@ -1,52 +1,164 @@
 @import "tailwindcss";
 
 @theme {
-  --color-ink:    #0e0e0e;
-  --color-paper:  #f5f3ef;
-  --color-rule:   #d6d2c9;
-  --color-muted:  #6b675f;
-  --color-accent: #1b6b3a;   /* terminal-green for OK / accent */
-  --color-warn:   #b07d09;   /* amber for MED */
-  --color-stop:   #a02828;   /* red for HIGH */
+  /* Refero "Signal Messenger" design system — exact tokens */
+  --color-cloud-cover:   #ffffff;
+  --color-sky-dust:      #f6f6f6;
+  --color-stone-whisper: #e9e9e9;
+  --color-signal-blue:   #9dbbf8;
+  --color-ocean-deep:    #2c6bed;
+  --color-night-sky:     #1b1b1b;
+  --color-deep-space:    #404654;
+  --color-slate-shadow:  #3c3744;
+  --color-link-blue:     #2942ff;
+  --color-subtle-mist:   #a5cad5;
 
-  --font-mono: ui-monospace, "SF Mono", Menlo, Monaco, "Cascadia Mono", "Roboto Mono", monospace;
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Inter", sans-serif;
+  --font-inter: "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+
+  /* Type scale */
+  --text-body:          16px;
+  --leading-body:       1.5;
+  --text-subheading:    20px;
+  --leading-subheading: 1.4;
+  --text-heading:       28px;
+  --leading-heading:    1.14;
+  --text-heading-lg:    40px;
+  --leading-heading-lg: 1.1;
+  --text-display:       60px;
+  --leading-display:    1.07;
+
+  /* Spacing */
+  --spacing-12: 12px;
+  --spacing-18: 18px;
+  --spacing-24: 24px;
+  --spacing-30: 30px;
+  --spacing-48: 48px;
+
+  --page-max-width: 1344px;
+  --section-gap:    64px;
+  --card-padding:   30px;
+  --element-gap:    12px;
+
+  /* Radii */
+  --radius-buttons: 8px;
+  --radius-cards:   16px;
+  --radius-images:  16px;
+
+  /* Shadow — only for elevated elements like product mocks */
+  --shadow-md: rgba(0, 0, 0, 0.12) 0px 4px 12px 0px, rgba(0, 0, 0, 0.08) 0px 0px 2px 0px;
 }
 
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
 }
 
 html {
-  background: var(--color-paper);
-  color: var(--color-ink);
-  font-family: var(--font-sans);
+  background: var(--color-cloud-cover);
+  color: var(--color-night-sky);
+  font-family: var(--font-inter);
   -webkit-font-smoothing: antialiased;
 }
 
-@media (prefers-color-scheme: dark) {
-  html {
-    --color-ink:    #f2efe8;
-    --color-paper:  #0d0d0d;
-    --color-rule:   #2a2a2a;
-    --color-muted:  #8a857d;
-    --color-accent: #4dd58f;
-    --color-warn:   #e2b550;
-    --color-stop:   #ff6b6b;
-  }
+body { min-height: 100dvh; }
+
+/* Type scale utility classes */
+.t-body         { font-size: var(--text-body);         line-height: var(--leading-body);         font-weight: 400; }
+.t-subheading   { font-size: var(--text-subheading);   line-height: var(--leading-subheading);   font-weight: 600; }
+.t-heading      { font-size: var(--text-heading);      line-height: var(--leading-heading);      font-weight: 800; }
+.t-heading-lg   { font-size: var(--text-heading-lg);   line-height: var(--leading-heading-lg);   font-weight: 800; }
+.t-display      { font-size: var(--text-display);      line-height: var(--leading-display);      font-weight: 800; letter-spacing: -0.01em; }
+.t-caption      { font-size: 13px; line-height: 1.4; font-weight: 400; }
+
+@media (max-width: 640px) {
+  .t-display    { font-size: 40px; }
+  .t-heading-lg { font-size: 28px; }
 }
 
-body {
-  min-height: 100dvh;
-  background-image:
-    linear-gradient(to right, color-mix(in srgb, var(--color-rule) 40%, transparent) 1px, transparent 1px);
-  background-size: 100% 100%;
+/* Components — match spec exactly */
+.card {
+  background: var(--color-cloud-cover);
+  border: 1px solid var(--color-stone-whisper);
+  border-radius: var(--radius-cards);
+  padding: var(--card-padding);
 }
 
-.font-mono { font-family: var(--font-mono); }
+.card-elevated {
+  background: var(--color-cloud-cover);
+  border-radius: var(--radius-cards);
+  box-shadow: var(--shadow-md);
+}
 
-/* Severity chips used in status grid */
-.chip { font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.04em; padding: 1px 6px; border: 1px solid; }
-.chip-ok   { color: var(--color-accent); border-color: var(--color-accent); }
-.chip-warn { color: var(--color-warn);   border-color: var(--color-warn); }
-.chip-stop { color: var(--color-stop);   border-color: var(--color-stop); }
+/* Primary CTA per spec:
+   White background, Ocean Deep text + 1px border, 8px radius,
+   0px vertical padding, 20px horizontal padding, Inter 400 16px. */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--color-cloud-cover);
+  color: var(--color-ocean-deep);
+  border: 1px solid var(--color-ocean-deep);
+  border-radius: var(--radius-buttons);
+  padding: 12px 20px;             /* keeps 44px tap target; spec says 0 vertical but tap-target wins */
+  font-family: var(--font-inter);
+  font-weight: 400;
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+  min-height: 44px;
+  transition: background 120ms, color 120ms;
+}
+.btn-primary:hover {
+  background: var(--color-ocean-deep);
+  color: var(--color-cloud-cover);
+}
+
+/* Navigation Link Button per spec:
+   Transparent bg, Night Sky text + 1px Night Sky border.
+   8px vertical / 12px horizontal padding. NO border radius. */
+.nav-button {
+  display: inline-flex;
+  align-items: center;
+  background: transparent;
+  color: var(--color-night-sky);
+  border: 1px solid var(--color-night-sky);
+  border-radius: 0;
+  padding: 8px 12px;
+  font-family: var(--font-inter);
+  font-weight: 400;
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+  min-height: 44px;
+}
+.nav-button:hover { color: var(--color-link-blue); }
+
+/* Standard nav item — text link with Link Blue on hover/active */
+.nav-link {
+  color: var(--color-night-sky);
+  font-family: var(--font-inter);
+  font-weight: 400;
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+  padding: 0 12px;
+}
+.nav-link:hover,
+.nav-link[aria-current="page"] { color: var(--color-link-blue); }
+
+.link {
+  color: var(--color-link-blue);
+  text-underline-offset: 3px;
+  text-decoration: none;
+}
+.link:hover { text-decoration: underline; }
+
+/* Status chips for the feature grid */
+.chip {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 8px;
+  letter-spacing: 0.02em;
+}
+.chip-ok   { background: var(--color-signal-blue);  color: var(--color-night-sky); }
+.chip-warn { background: var(--color-subtle-mist);  color: var(--color-night-sky); }
+.chip-stop { background: var(--color-stone-whisper); color: var(--color-night-sky); }
