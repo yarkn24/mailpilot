@@ -2,7 +2,9 @@ import type { NextConfig } from "next";
 
 const config: NextConfig = {
   reactStrictMode: true,
-  typedRoutes: true,
+  // typedRoutes disabled for v0.1 — we use dynamic href strings in Nav and
+  // message links. Re-enable when route shapes are stable.
+  typedRoutes: false,
   headers: async () => [
     {
       source: "/(.*)",

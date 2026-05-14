@@ -84,21 +84,46 @@ This repo is also a demonstration of agent-driven development:
 
 ---
 
+## Live status
+
+| Surface | Works today | Notes |
+|---|---|---|
+| Landing page | ✅ | https://mailpilot-virid.vercel.app |
+| IMAP connect (Yahoo, AOL, iCloud, Fastmail, custom) | ✅ | App password required; live IMAP test before save |
+| Inbox listing across multiple IMAP accounts | ✅ | Unified, deduped by Message-ID |
+| Read message body (HTML sandboxed) | ✅ | Iframe `sandbox=""` + no script execution |
+| Archive / Trash / Mark read | ✅ | Provider-aware folder fallbacks |
+| Compose / Reply | ✅ | SMTP via provider; header-injection guarded |
+| Search | ✅ | Server-side IMAP `SEARCH BODY` |
+| AI Summary | ✅ when `ANTHROPIC_API_KEY` set | Claude Haiku 4.5; stub response otherwise |
+| AI Reply draft | ✅ when key set | Claude Sonnet 4.6; tone-controlled |
+| AI Prioritization | ✅ when key set | Batched, returns priority band per message |
+| Gmail OAuth | ⏳ scaffold | Provider abstraction in place; OAuth flow pending |
+| Microsoft 365 OAuth | ⏳ scaffold | Same shape as Gmail; pending |
+
 ## Development
 
 ```bash
-pnpm install
-pnpm dev                  # local dev server on :3000
+npm install
+npm run dev                  # local dev server on :3000
 
-pnpm typecheck            # tsc --noEmit
-pnpm lint                 # eslint
-pnpm test                 # vitest unit tests
-pnpm test:e2e             # playwright
+npm run typecheck            # tsc --noEmit
+npm test                     # vitest unit tests
+npm run test:e2e             # playwright
 
-pnpm build                # next build — also catches SSR errors
+npm run build                # next build — also catches SSR errors
 ```
 
 Required environment variables: see `.env.example`.
+
+## Quick demo (IMAP)
+
+1. Open the live URL → **Settings** → fill the IMAP form with your Yahoo/AOL/iCloud/Fastmail email and an **app password** (generate from your provider's security settings).
+2. **Inbox** shows your latest 25 messages.
+3. Open a message → **Summarize** or **Draft reply** → AI runs (real Claude call if key is configured server-side, otherwise stub).
+4. Use **Archive**, **Trash**, or **Reply** from the message view.
+
+Storage is in-memory (per session cookie) in this preview — disconnecting and reconnecting will not persist accounts across server restarts. Production uses Neon Postgres with per-user KEK encryption.
 
 ---
 
