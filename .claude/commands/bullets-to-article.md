@@ -25,4 +25,4 @@ Instructions:
 
 Deliver: the full finished piece, then a one-line note on any fragments that were unclear.
 
-For mailpilot context: when output is ARCHITECTURE.md or WORKFLOW.md, default to direct technical tone, 600-1000 words, audience = Taj (recruiter evaluating Claude Code discipline).
+For mailpilot context: when output is ARCHITECTURE.md or WORKFLOW.md, default to direct technical tone, 600-1000 words, audience = senior technical reviewer.

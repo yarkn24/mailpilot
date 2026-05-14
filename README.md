@@ -104,4 +104,4 @@ Required environment variables: see `.env.example`.
 
 ## License
 
-Private — for evaluation by Taj Haslani / Aptask. Not for redistribution.
+Private. All rights reserved.

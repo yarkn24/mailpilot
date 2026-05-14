@@ -57,3 +57,8 @@ next-env.d.ts
 # Spec-kit working dirs (specs and plans are tracked; runtime state is not)
 .specify/.cache/
 .specify/.tmp/
+
+# Local-only research / strategy notes — never committed
+myvault.md
+myvault/
+.myvault/

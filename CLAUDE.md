@@ -110,14 +110,18 @@ Global skills (from `~/.claude/`) actively leveraged:
 
 ---
 
-## Deliverables (Taj's assignment)
+## Deliverables (v0.1 scaffold)
 
 1. ✅ Private GitHub repo: `yarkn24/mailpilot`
-2. ⏳ Live Vercel URL
+2. ✅ Live Vercel URL (see README)
 3. ✅ CLAUDE.md (this file)
-4. ⏳ `docs/ARCHITECTURE.md` (one-page)
-5. ⏳ `docs/WORKFLOW.md` (multi-agent workflow writeup)
-6. ✅ Agents/skills/hooks/plugins list (this file's sections above)
+4. ✅ `docs/ARCHITECTURE.md` (one-page)
+5. ✅ `docs/WORKFLOW.md` (multi-agent workflow writeup)
+6. ✅ `docs/VISION.md` (product roadmap + non-goals)
+7. ✅ `docs/USED_SKILLS_AND_TECHNIQUES.md` (live log of every skill/technique used)
+8. ✅ Agents/skills/hooks/plugins inventory (sections above)
+9. ✅ Pre-commit hook enforcing typecheck/lint/test + PII guardrail
+10. ✅ Unit tests for dedup + redaction (intent-verifying)
 
 ---
 

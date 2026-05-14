@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Mailpilot post-merge hook.
+# When pulling main, if package.json or package-lock.json changed, remind the
+# user to reinstall — silent stale deps cause "works on my machine" bugs.
+
+set -euo pipefail
+
+CHANGED=$(git diff-tree -r --name-only --no-commit-id ORIG_HEAD HEAD)
+if echo "$CHANGED" | grep -qE '(^|/)package(-lock)?\.json$'; then
+  echo "post-merge: package.json or package-lock.json changed — run 'npm install'"
+fi

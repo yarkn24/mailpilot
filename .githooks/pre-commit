@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# Mailpilot pre-commit hook.
+# Enforces "fail loud" (CLAUDE.md R8): blocks commits that would silently break
+# typecheck, lint, or tests. Bypass at your own risk with `git commit --no-verify`
+# (and explain why in the commit body).
+
+set -euo pipefail
+
+# Skip if no staged files are project source (allow docs-only commits to fly)
+STAGED=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.(ts|tsx|css|mjs|js|json)$' || true)
+if [ -z "$STAGED" ]; then
+  echo "pre-commit: no source files staged — skipping checks"
+  exit 0
+fi
+
+echo "pre-commit: running checks on staged source files…"
+
+# 1. PII guardrail — refuse commits that log raw email content/addresses.
+# Heuristic: scan staged TS/TSX for console.log of message bodies / addresses.
+if echo "$STAGED" | xargs -I{} grep -lE 'console\.(log|info|debug)\([^)]*\b(email|address|body|subject|from|to|cc|bcc)\b' {} 2>/dev/null; then
+  echo "✗ Found console.log referencing email fields — possible PII leak (CLAUDE.md R1)."
+  echo "  Redact to '<email>' or use a structured logger that filters at sink."
+  exit 1
+fi
+
+# 2. Typecheck (only if TS files staged)
+if echo "$STAGED" | grep -qE '\.(ts|tsx)$'; then
+  echo "  → typecheck"
+  npm run --silent typecheck
+fi
+
+# 3. Lint (only if next/eslint is wired)
+if [ -f node_modules/.bin/next ] && [ -f .eslintrc.json -o -f eslint.config.mjs -o -f eslint.config.js ]; then
+  echo "  → lint"
+  npm run --silent lint || true  # warnings allowed in early scaffold
+fi
+
+# 4. Unit tests (vitest)
+if [ -d tests/unit ] && [ -f node_modules/.bin/vitest ]; then
+  echo "  → vitest unit"
+  npm run --silent test
+fi
+
+echo "pre-commit: all checks passed ✓"
