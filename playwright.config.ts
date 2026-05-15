@@ -13,8 +13,13 @@ export default defineConfig({
   testDir: "./tests/e2e",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
+  // Retry once locally too — first hit to a Vercel serverless function can
+  // cold-start and exceed the default per-request timeout.
+  retries: process.env.CI ? 2 : 1,
   workers: process.env.CI ? 1 : undefined,
+  // Generous per-test timeout to absorb cold starts on the live URL.
+  timeout: 60_000,
+  expect: { timeout: 15_000 },
   reporter: [
     ["list"],
     ["html", { outputFolder: "playwright-report", open: "never" }],
@@ -26,6 +31,8 @@ export default defineConfig({
     trace: "on-first-retry",
     video: { mode: "on", size: { width: 1280, height: 720 } },
     screenshot: "only-on-failure",
+    actionTimeout: 20_000,
+    navigationTimeout: 30_000,
   },
   projects: [
     {
